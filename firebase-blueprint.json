@@ -1,0 +1,44 @@
+{
+  "entities": {
+    "UserProfile": {
+      "title": "User Profile",
+      "description": "Stores user-specific data including referral information and rewards.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "description": "Unique internal user ID" },
+        "referralCode": { "type": "string", "description": "User's unique referral code" },
+        "referralsCount": { "type": "number", "description": "Number of successful referrals" },
+        "totalRewards": { "type": "number", "description": "Total credit earned in USD" },
+        "referredFriends": { "type": "array", "items": { "type": "string" }, "description": "List of user IDs referred by this user" },
+        "email": { "type": "string", "format": "email", "description": "User's email address" },
+        "displayName": { "type": "string", "description": "User's display name" },
+        "photoURL": { "type": "string", "description": "User's profile picture URL" }
+      },
+      "required": ["userId", "referralCode", "referralsCount", "totalRewards"]
+    },
+    "Review": {
+      "title": "Review",
+      "description": "A customer review and rating for TYANGO products.",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string", "description": "Name of the reviewer" },
+        "rating": { "type": "number", "description": "Rating from 1 to 5" },
+        "text": { "type": "string", "description": "Review content" },
+        "date": { "type": "string", "format": "date-time", "description": "ISO timestamp of the review" },
+        "avatar": { "type": "string", "description": "Emoji or avatar URL" },
+        "uid": { "type": "string", "description": "Firebase Auth UID of the reviewer" }
+      },
+      "required": ["name", "rating", "text", "date", "avatar"]
+    }
+  },
+  "firestore": {
+    "/users/{uid}": {
+      "schema": "UserProfile",
+      "description": "Private user profile data."
+    },
+    "/reviews/{reviewId}": {
+      "schema": "Review",
+      "description": "Public customer reviews."
+    }
+  }
+}

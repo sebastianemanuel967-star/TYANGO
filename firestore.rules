@@ -1,0 +1,85 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // ===============================================================
+    // Assumed Data Model
+    // ===============================================================
+    //
+    // Collection: users
+    // Document ID: {uid} (Firebase Auth UID)
+    // Fields:
+    //   - userId: string (required) - Internal unique ID
+    //   - referralCode: string (required) - Unique code for referrals
+    //   - referralsCount: number (required) - Count of referrals
+    //   - totalRewards: number (required) - Total credit earned
+    //   - referredFriends: list (optional) - List of referred UIDs
+    //   - email: string (optional) - User email
+    //   - displayName: string (optional) - User display name
+    //   - photoURL: string (optional) - User photo URL
+    //
+    // Collection: reviews
+    // Document ID: {reviewId} (Auto-generated)
+    // Fields:
+    //   - name: string (required) - Reviewer name
+    //   - rating: number (required) - 1-5 rating
+    //   - text: string (required) - Review content
+    //   - date: string (required) - ISO timestamp
+    //   - avatar: string (required) - Emoji or URL
+    //   - uid: string (optional) - Creator's UID
+    //
+    // ===============================================================
+
+    // ===============================================================
+    // Helper Functions
+    // ===============================================================
+    
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    function isAdmin() {
+      return isAuthenticated() &&
+        (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin' ||
+          (request.auth.token.email == "sebastianemanuel967@gmail.com" && request.auth.token.email_verified == true));
+    }
+
+    function isValidUser(data) {
+      return data.keys().hasAll(['userId', 'referralCode', 'referralsCount', 'totalRewards']) &&
+             data.userId is string && data.userId.size() < 100 &&
+             data.referralCode is string && data.referralCode.size() < 20 &&
+             data.referralsCount is number && data.referralsCount >= 0 &&
+             data.totalRewards is number && data.totalRewards >= 0;
+    }
+
+    function isValidReview(data) {
+      return data.keys().hasAll(['name', 'rating', 'text', 'date', 'avatar']) &&
+             data.name is string && data.name.size() > 0 && data.name.size() < 100 &&
+             data.rating is number && data.rating >= 1 && data.rating <= 5 &&
+             data.text is string && data.text.size() > 0 && data.text.size() < 2000 &&
+             data.date is string &&
+             data.avatar is string && data.avatar.size() < 500;
+    }
+
+    // ===============================================================
+    // Rules
+    // ===============================================================
+
+    match /users/{userId} {
+      allow read: if isOwner(userId) || isAdmin();
+      allow create: if isOwner(userId) && isValidUser(request.resource.data) && (!('role' in request.resource.data) || isAdmin());
+      allow update: if isOwner(userId) && isValidUser(request.resource.data) && 
+                    (request.resource.data.role == resource.data.role || isAdmin());
+    }
+
+    match /reviews/{reviewId} {
+      allow read: if true;
+      allow create: if isAuthenticated() && isValidReview(request.resource.data) && 
+                    (request.resource.data.uid == request.auth.uid);
+      allow update, delete: if isAdmin() || (isAuthenticated() && resource.data.uid == request.auth.uid);
+    }
+  }
+}
