@@ -37,33 +37,22 @@ import {
   serverTimestamp,
   getDocFromServer
 } from "firebase/firestore";
+import { 
+  fruits, 
+  toppings, 
+  sizes, 
+  referralCodes, 
+  testimonials, 
+  QUITO_NAMES, 
+  QUITO_BARRIOS,
+  type Fruit,
+  type Topping,
+  type Size,
+  type Testimonial
+} from "./constants";
+import { fruitArt, toppingArt } from "./lib/canvasArt";
 
 // ─── TYPES ───
-interface Fruit {
-  id: string;
-  emoji: string;
-  name: string;
-}
-
-interface Topping {
-  id: string;
-  emoji: string;
-  name: string;
-}
-
-interface Size {
-  label: string;
-  price: number;
-  weight: number;
-}
-
-interface Testimonial {
-  name: string;
-  role: string;
-  text: string;
-  avatar: string;
-}
-
 interface UserProfile {
   userId: string;
   referralCode: string;
@@ -94,69 +83,6 @@ interface Review {
   uid?: string;
 }
 
-// ─── DATA ───
-const fruits: Fruit[] = [
-  { id: "mango", emoji: "🥭", name: "Mango" },
-  { id: "pina", emoji: "🍍", name: "Piña" },
-  { id: "fresa", emoji: "🍓", name: "Fresa" },
-  { id: "sandia", emoji: "🍉", name: "Sandía" },
-  { id: "pepino", emoji: "🥒", name: "Pepino" },
-  { id: "melon", emoji: "🍈", name: "Melón" },
-  { id: "manzana", emoji: "🍎", name: "Manzana" },
-  { id: "uva", emoji: "🍇", name: "Uva Congelada" },
-];
-
-const toppings: Topping[] = [
-  { id: "tajin", emoji: "🌶️", name: "Tajín" },
-  { id: "tajin_picante", emoji: "🔥", name: "Tajín Picante" },
-  { id: "limon", emoji: "🍋", name: "Limón" },
-  { id: "miel", emoji: "🍯", name: "Miel" },
-  { id: "gomitas", emoji: "🍬", name: "Gomitas" },
-  { id: "takis", emoji: "🌮", name: "Takis" },
-];
-
-const sizes: Record<string, Size> = {
-  mini: { label: "Mini", weight: 60, price: 0.6 },
-  clasico: { label: "Clásico", weight: 100, price: 1.25 },
-  premium: { label: "Premium", weight: 150, price: 1.75 },
-};
-
-const referralCodes: Record<string, number> = {
-  TYANGO10: 10,
-  AMIGO15: 15,
-  PROMO20: 20,
-  PRIMERA5: 5,
-  FRUTAS10: 10,
-  QUITO10: 10,
-};
-
-const testimonials: Testimonial[] = [
-  {
-    name: "María García",
-    role: "Estudiante",
-    text: "¡ENCHILATE con TYANGO! La mejor combinación de mango con tajín picante. Adictivo.",
-    avatar: "👩‍🎓",
-  },
-  {
-    name: "Carlos López",
-    role: "Deportista",
-    text: "Perfecto para después del gym. Fruta fresca, saludable y delicioso. ¡Recomendado!",
-    avatar: "💪",
-  },
-  {
-    name: "Ana Martínez",
-    role: "Emprendedora",
-    text: "La mejor opción para un snack rápido en la oficina. Calidad premium a buen precio.",
-    avatar: "👩‍💼",
-  },
-  {
-    name: "Diego Rodríguez",
-    role: "Influencer",
-    text: "¡ENCHILATE! Es la frase perfecta para describir TYANGO. Sabor explosivo.",
-    avatar: "🎬",
-  },
-];
-
 // ─── UTILS ───
 const generateUniqueCode = () => {
   const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
@@ -170,232 +96,6 @@ const generateUniqueCode = () => {
 const generateUserId = () => {
   return "USER_" + Math.random().toString(36).substring(2, 11).toUpperCase();
 };
-
-// ─── CANVAS ART ───
-const fruitArt = {
-  mango: (ctx: CanvasRenderingContext2D, x: number, y: number, r: number) => {
-    const g = ctx.createRadialGradient(x - r * 0.15, y - r * 0.15, r * 0.08, x, y, r);
-    g.addColorStop(0, "#FFF176");
-    g.addColorStop(0.45, "#FFB800");
-    g.addColorStop(1, "#E07000");
-    ctx.beginPath();
-    ctx.ellipse(x, y, r * 0.72, r, 0, 0, Math.PI * 2);
-    ctx.fillStyle = g;
-    ctx.fill();
-    ctx.strokeStyle = "rgba(180,90,0,.5)";
-    ctx.lineWidth = 2;
-    ctx.stroke();
-  },
-  pina: (ctx: CanvasRenderingContext2D, x: number, y: number, r: number) => {
-    const g = ctx.createRadialGradient(x, y, r * 0.05, x, y, r);
-    g.addColorStop(0, "#FFFDE7");
-    g.addColorStop(0.55, "#FFD600");
-    g.addColorStop(1, "#E65100");
-    ctx.beginPath();
-    ctx.arc(x, y, r * 0.82, 0, Math.PI * 2);
-    ctx.fillStyle = g;
-    ctx.fill();
-    ctx.strokeStyle = "rgba(180,80,0,.4)";
-    ctx.lineWidth = 2;
-    ctx.stroke();
-  },
-  fresa: (ctx: CanvasRenderingContext2D, x: number, y: number, r: number) => {
-    const g = ctx.createRadialGradient(x - r * 0.25, y - r * 0.2, r * 0.05, x, y, r);
-    g.addColorStop(0, "#FF8A80");
-    g.addColorStop(0.4, "#F44336");
-    g.addColorStop(1, "#B71C1C");
-    ctx.beginPath();
-    ctx.moveTo(x, y + r * 0.88);
-    ctx.bezierCurveTo(x - r * 0.82, y + r * 0.22, x - r * 0.95, y - r * 0.28, x - r * 0.5, y - r * 0.58);
-    ctx.bezierCurveTo(x - r * 0.18, y - r * 0.92, x, y - r * 0.48, x, y - r * 0.28);
-    ctx.bezierCurveTo(x, y - r * 0.48, x + r * 0.18, y - r * 0.92, x + r * 0.5, y - r * 0.58);
-    ctx.bezierCurveTo(x + r * 0.95, y - r * 0.28, x + r * 0.82, y + r * 0.22, x, y + r * 0.88);
-    ctx.fillStyle = g;
-    ctx.fill();
-    ctx.strokeStyle = "rgba(130,15,15,.5)";
-    ctx.lineWidth = 1.5;
-    ctx.stroke();
-  },
-  sandia: (ctx: CanvasRenderingContext2D, x: number, y: number, r: number) => {
-    ctx.beginPath();
-    ctx.moveTo(x, y - r * 0.88);
-    ctx.lineTo(x - r * 0.88, y + r * 0.72);
-    ctx.lineTo(x + r * 0.88, y + r * 0.72);
-    ctx.closePath();
-    const g = ctx.createLinearGradient(x, y - r * 0.88, x, y + r * 0.72);
-    g.addColorStop(0, "#FF5252");
-    g.addColorStop(0.82, "#E53935");
-    g.addColorStop(1, "#B71C1C");
-    ctx.fillStyle = g;
-    ctx.fill();
-    ctx.strokeStyle = "#43A047";
-    ctx.lineWidth = r * 0.16;
-    ctx.stroke();
-  },
-  pepino: (ctx: CanvasRenderingContext2D, x: number, y: number, r: number) => {
-    const g = ctx.createRadialGradient(x, y, r * 0.04, x, y, r);
-    g.addColorStop(0, "#E8F5E9");
-    g.addColorStop(0.48, "#81C784");
-    g.addColorStop(1, "#2E7D32");
-    ctx.beginPath();
-    ctx.arc(x, y, r * 0.82, 0, Math.PI * 2);
-    ctx.fillStyle = g;
-    ctx.fill();
-    ctx.strokeStyle = "#1B5E20";
-    ctx.lineWidth = 2.5;
-    ctx.stroke();
-  },
-  melon: (ctx: CanvasRenderingContext2D, x: number, y: number, r: number) => {
-    ctx.beginPath();
-    ctx.arc(x, y, r * 0.82, 0, Math.PI, false);
-    ctx.lineTo(x - r * 0.82, y);
-    ctx.closePath();
-    const g = ctx.createLinearGradient(x - r, y - r * 0.5, x + r * 0.5, y + r * 0.2);
-    g.addColorStop(0, "#FFF9C4");
-    g.addColorStop(0.5, "#FFD54F");
-    g.addColorStop(1, "#FF8F00");
-    ctx.fillStyle = g;
-    ctx.fill();
-    ctx.strokeStyle = "rgba(150,80,0,.4)";
-    ctx.lineWidth = 2;
-    ctx.stroke();
-  },
-  manzana: (ctx: CanvasRenderingContext2D, x: number, y: number, r: number) => {
-    const g = ctx.createRadialGradient(x - r * 0.22, y - r * 0.22, r * 0.08, x, y, r);
-    g.addColorStop(0, "#FFCDD2");
-    g.addColorStop(0.5, "#EF5350");
-    g.addColorStop(1, "#C62828");
-    ctx.beginPath();
-    ctx.arc(x, y, r * 0.82, 0, Math.PI * 2);
-    ctx.fillStyle = g;
-    ctx.fill();
-    ctx.strokeStyle = "rgba(120,20,20,.4)";
-    ctx.lineWidth = 2;
-    ctx.stroke();
-  },
-  uva: (ctx: CanvasRenderingContext2D, x: number, y: number, r: number) => {
-    const g = ctx.createRadialGradient(x - r * 0.2, y - r * 0.2, r * 0.05, x, y, r);
-    g.addColorStop(0, "#9C27B0");
-    g.addColorStop(0.5, "#7B1FA2");
-    g.addColorStop(1, "#4A148C");
-    for (let i = 0; i < 5; i++) {
-      const angle = (i / 5) * Math.PI * 2;
-      const px = x + Math.cos(angle) * r * 0.4;
-      const py = y + Math.sin(angle) * r * 0.4;
-      ctx.beginPath();
-      ctx.arc(px, py, r * 0.35, 0, Math.PI * 2);
-      ctx.fillStyle = g;
-      ctx.fill();
-      ctx.strokeStyle = "rgba(100,50,150,.6)";
-      ctx.lineWidth = 1.5;
-      ctx.stroke();
-    }
-    ctx.beginPath();
-    ctx.arc(x, y, r * 0.3, 0, Math.PI * 2);
-    ctx.fillStyle = g;
-    ctx.fill();
-    ctx.strokeStyle = "rgba(100,50,150,.6)";
-    ctx.lineWidth = 1.5;
-    ctx.stroke();
-  },
-};
-
-const toppingArt = {
-  tajin: (ctx: CanvasRenderingContext2D, cx: number, cy: number, r: number) => {
-    for (let i = 0; i < 24; i++) {
-      const a = Math.random() * Math.PI * 2;
-      const d = r * 0.12 + Math.random() * r * 0.65;
-      ctx.beginPath();
-      ctx.arc(cx + Math.cos(a) * d, cy + Math.sin(a) * d, 1.2 + Math.random() * 2.8, 0, Math.PI * 2);
-      ctx.fillStyle = `rgba(220,${45 + Math.random() * 55},15,${0.5 + Math.random() * 0.38})`;
-      ctx.fill();
-    }
-  },
-  tajin_picante: (ctx: CanvasRenderingContext2D, cx: number, cy: number, r: number) => {
-    for (let i = 0; i < 30; i++) {
-      const a = Math.random() * Math.PI * 2;
-      const d = r * 0.1 + Math.random() * r * 0.72;
-      ctx.beginPath();
-      ctx.arc(cx + Math.cos(a) * d, cy + Math.sin(a) * d, 1.2 + Math.random() * 3.2, 0, Math.PI * 2);
-      ctx.fillStyle = `rgba(195,${25 + Math.random() * 35},8,${0.55 + Math.random() * 0.4})`;
-      ctx.fill();
-    }
-  },
-  limon: (ctx: CanvasRenderingContext2D, cx: number, cy: number, r: number) => {
-    for (let i = 0; i < 14; i++) {
-      const a = Math.random() * Math.PI * 2;
-      const d = Math.random() * r * 0.7;
-      ctx.beginPath();
-      ctx.arc(cx + Math.cos(a) * d, cy + Math.sin(a) * d, 3.5 + Math.random() * 5.5, 0, Math.PI * 2);
-      ctx.fillStyle = `rgba(255,235,59,${0.22 + Math.random() * 0.28})`;
-      ctx.fill();
-    }
-  },
-  miel: (ctx: CanvasRenderingContext2D, cx: number, cy: number, r: number) => {
-    for (let i = 0; i < 6; i++) {
-      const sx = cx + (Math.random() - 0.5) * r * 0.9;
-      ctx.beginPath();
-      ctx.moveTo(sx, cy - r * 0.52);
-      ctx.quadraticCurveTo(sx + (Math.random() - 0.5) * 10, cy, sx + (Math.random() - 0.5) * 5, cy + r * 0.62);
-      ctx.strokeStyle = `rgba(255,179,0,${0.4 + Math.random() * 0.38})`;
-      ctx.lineWidth = 3 + Math.random() * 3.5;
-      ctx.lineCap = "round";
-      ctx.stroke();
-    }
-  },
-  gomitas: (ctx: CanvasRenderingContext2D, cx: number, cy: number, r: number) => {
-    const cols = ["#FF5252", "#FF4081", "#40C4FF", "#69F0AE", "#FFFF00", "#FF6D00", "#EA80FC", "#80D8FF"];
-    for (let i = 0; i < 11; i++) {
-      const a = Math.random() * Math.PI * 2;
-      const d = r * 0.08 + Math.random() * r * 0.72;
-      const x2 = cx + Math.cos(a) * d;
-      const y2 = cy + Math.sin(a) * d;
-      const col = cols[Math.floor(Math.random() * cols.length)];
-      ctx.beginPath();
-      ctx.arc(x2, y2, 5 + Math.random() * 4.5, 0, Math.PI * 2);
-      ctx.fillStyle = col + "bb";
-      ctx.fill();
-      ctx.strokeStyle = col;
-      ctx.lineWidth = 1;
-      ctx.stroke();
-    }
-  },
-  takis: (ctx: CanvasRenderingContext2D, cx: number, cy: number, r: number) => {
-    for (let i = 0; i < 9; i++) {
-      const a = Math.random() * Math.PI * 2;
-      const d = Math.random() * r * 0.68;
-      const x2 = cx + Math.cos(a) * d;
-      const y2 = cy + Math.sin(a) * d;
-      const rot = Math.random() * Math.PI;
-      ctx.save();
-      ctx.translate(x2, y2);
-      ctx.rotate(rot);
-      const g = ctx.createLinearGradient(-11, 0, 11, 0);
-      g.addColorStop(0, "#BF360C");
-      g.addColorStop(0.5, "#FF5722");
-      g.addColorStop(1, "#BF360C");
-      ctx.beginPath();
-      ctx.ellipse(0, 0, 11, 5.5, 0, 0, Math.PI * 2);
-      ctx.fillStyle = g;
-      ctx.fill();
-      ctx.strokeStyle = "rgba(60,10,0,.55)";
-      ctx.lineWidth = 1;
-      ctx.stroke();
-      ctx.restore();
-    }
-  },
-};
-
-const QUITO_NAMES = [
-  "Sebas", "Mateo", "Valentina", "Nicolás", "Camila", "Andrés", "Isabella", "Felipe", "Martina", "Lucas", "Daniela", "Joaquín",
-  "Alejandra", "Santiago", "Paula", "Gabriel", "Lucía", "Emilio", "Victoria", "Benjamín", "Ximena", "Ricardo", "Elena", "Francisco",
-  "Micaela", "Javier", "Sofía", "Diego", "Natalia", "Adrián", "Renata", "Matías"
-];
-
-const QUITO_BARRIOS = [
-  "Cumbayá", "La Carolina", "El Condado", "Quitumbe", "Villaflora", "San Rafael", "Tumbaco", "Carcelén", "La Floresta", "Guamaní",
-  "Ponciano", "Conocoto", "El Recreo", "Iñaquito", "Nayón", "Puembo"
-];
 
 // ─── MAIN APP ───
 export default function App() {
@@ -445,7 +145,7 @@ export default function App() {
       setUserProfile(JSON.parse(savedProfile));
     } else {
       const newProfile: UserProfile = {
-        userId: `guest_${Math.random().toString(36).substr(2, 9)}`,
+        userId: generateUserId(),
         referralCode: generateUniqueCode(),
         referralsCount: 0,
         totalRewards: 0,
@@ -474,35 +174,39 @@ export default function App() {
     if (savedOrders) {
       setOrderHistory(JSON.parse(savedOrders));
     }
+  }, []);
 
-    // Real-time reviews
-    const q = query(collection(db, "reviews"), orderBy("date", "desc"), limit(20));
-    const unsubscribeReviews = onSnapshot(q, (snapshot) => {
-      const fetchedReviews = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      })) as Review[];
-      
-      if (fetchedReviews.length > 0) {
-        setReviews(fetchedReviews);
-      } else {
-        const initialReviews: Review[] = testimonials.map((t, i) => ({
-          id: `rev-${i}`,
-          name: t.name,
-          rating: 5,
-          text: t.text,
-          date: new Date().toISOString(),
-          avatar: t.avatar
-        }));
-        setReviews(initialReviews);
-      }
-    }, (error) => {
-      console.error("Firestore Error (Reviews):", error);
-    });
+  // Real-time reviews (Delayed for performance)
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      const q = query(collection(db, "reviews"), orderBy("date", "desc"), limit(20));
+      const unsubscribeReviews = onSnapshot(q, (snapshot) => {
+        const fetchedReviews = snapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data()
+        })) as Review[];
+        
+        if (fetchedReviews.length > 0) {
+          setReviews(fetchedReviews);
+        } else {
+          const initialReviews: Review[] = testimonials.map((t, i) => ({
+            id: `rev-${i}`,
+            name: t.name,
+            rating: 5,
+            text: t.text,
+            date: new Date().toISOString(),
+            avatar: t.avatar
+          }));
+          setReviews(initialReviews);
+        }
+      }, (error) => {
+        console.error("Firestore Error (Reviews):", error);
+      });
 
-    return () => {
-      unsubscribeReviews();
-    };
+      return () => unsubscribeReviews();
+    }, 1500);
+
+    return () => clearTimeout(timer);
   }, []);
 
   // Live Feed Logic
@@ -560,19 +264,6 @@ export default function App() {
   const averageRating = reviews.length > 0 
     ? (reviews.reduce((acc, rev) => acc + rev.rating, 0) / reviews.length).toFixed(1)
     : "0";
-
-  // Draw emoji on canvas
-  const drawEmoji = (canvas: HTMLCanvasElement, emoji: string, size: number) => {
-    canvas.width = size;
-    canvas.height = size;
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return;
-    ctx.clearRect(0, 0, size, size);
-    ctx.font = `${size * 0.76}px serif`;
-    ctx.textAlign = "center";
-    ctx.textBaseline = "middle";
-    ctx.fillText(emoji, size / 2, size / 2 + size * 0.04);
-  };
 
   // Render bag canvas
   const renderBag = () => {
@@ -1047,7 +738,7 @@ export default function App() {
                           : "bg-white/5 border-white/5 hover:border-white/20"
                       }`}
                     >
-                      <canvas className="w-12 h-12 mb-3" ref={(el) => el && drawEmoji(el, fruit.emoji, 48)} />
+                      <div className="text-4xl mb-3 h-12 flex items-center">{fruit.emoji}</div>
                       <div className="text-xs font-bold uppercase tracking-wider">{fruit.name}</div>
                       {isSelected && (
                         <motion.div 
@@ -1086,7 +777,7 @@ export default function App() {
                           : "bg-white/5 border-white/5 hover:border-white/20"
                       }`}
                     >
-                      <canvas className="w-10 h-10 mb-2" ref={(el) => el && drawEmoji(el, topping.emoji, 40)} />
+                      <div className="text-3xl mb-2 h-10 flex items-center">{topping.emoji}</div>
                       <div className="text-[10px] font-black uppercase tracking-wider">{topping.name}</div>
                       {isSelected && (
                         <motion.div 
