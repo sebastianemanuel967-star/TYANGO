@@ -29,6 +29,16 @@
         "uid": { "type": "string", "description": "Firebase Auth UID of the reviewer" }
       },
       "required": ["name", "rating", "text", "date", "avatar"]
+    },
+    "ReferralCode": {
+      "title": "Referral Code",
+      "description": "A mapping of referral codes to user IDs for global validation.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "description": "The user ID who owns this code" },
+        "createdAt": { "type": "string", "format": "date-time", "description": "When the code was registered" }
+      },
+      "required": ["userId", "createdAt"]
     }
   },
   "firestore": {
@@ -39,6 +49,10 @@
     "/reviews/{reviewId}": {
       "schema": "Review",
       "description": "Public customer reviews."
+    },
+    "/referral_codes/{code}": {
+      "schema": "ReferralCode",
+      "description": "Global registry of generated referral codes."
     }
   }
 }

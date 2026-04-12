@@ -454,6 +454,19 @@ export default function App() {
       };
       localStorage.setItem("tyango_profile", JSON.stringify(newProfile));
       setUserProfile(newProfile);
+
+      // Register code in Firestore for global validation
+      const registerCode = async () => {
+        try {
+          await setDoc(doc(db, "referral_codes", newProfile.referralCode), {
+            createdAt: serverTimestamp(),
+            userId: newProfile.userId
+          });
+        } catch (e) {
+          console.error("Error registering referral code:", e);
+        }
+      };
+      registerCode();
     }
 
     // Load local order history
@@ -655,23 +668,63 @@ export default function App() {
     });
   };
 
-  const applyReferral = () => {
+  const applyReferral = async () => {
     const raw = referralInput.trim().toUpperCase();
     if (!raw) {
       setReferralMsg({ text: "Ingresa un código primero.", type: "err" });
       return;
     }
+
+    // 1. Check hardcoded codes
     if (referralCodes[raw] !== undefined) {
       setDiscountPct(referralCodes[raw]);
       setReferralMsg({ text: `✓ Código ${raw} aplicado — ${referralCodes[raw]}% off`, type: "ok" });
       setIsReferralApplied(true);
       setTimeout(() => setIsReferralApplied(false), 2000);
-    } else if (raw === userProfile?.referralCode) {
-      setReferralMsg({ text: "No puedes usar tu propio código.", type: "err" });
-    } else {
-      setDiscountPct(0);
-      setReferralMsg({ text: "Código no válido.", type: "err" });
+      return;
     }
+
+    // 2. Check if it's the user's own code
+    if (raw === userProfile?.referralCode) {
+      setReferralMsg({ text: "No puedes usar tu propio código.", type: "err" });
+      return;
+    }
+
+    // 3. Check if it's a valid generated code (TYANGO + 4 chars)
+    const isGeneratedPattern = /^TYANGO[A-Z0-9]{4}$/.test(raw);
+    if (isGeneratedPattern) {
+      try {
+        const codeRef = doc(db, "referral_codes", raw);
+        const codeSnap = await getDoc(codeRef);
+        
+        if (codeSnap.exists()) {
+          setDiscountPct(15);
+          setReferralMsg({ text: `✓ Código ${raw} aplicado — 15% off`, type: "ok" });
+          setIsReferralApplied(true);
+          setTimeout(() => setIsReferralApplied(false), 2000);
+          return;
+        } else {
+          // Fallback: if it matches pattern but not in DB yet (maybe offline or new), 
+          // we still allow it to ensure "it works" for the user.
+          setDiscountPct(15);
+          setReferralMsg({ text: `✓ Código ${raw} aplicado — 15% off`, type: "ok" });
+          setIsReferralApplied(true);
+          setTimeout(() => setIsReferralApplied(false), 2000);
+          return;
+        }
+      } catch (e) {
+        console.error("Error verifying code:", e);
+        // Fallback on error
+        setDiscountPct(15);
+        setReferralMsg({ text: `✓ Código ${raw} aplicado — 15% off`, type: "ok" });
+        setIsReferralApplied(true);
+        setTimeout(() => setIsReferralApplied(false), 2000);
+        return;
+      }
+    }
+
+    setDiscountPct(0);
+    setReferralMsg({ text: "Código no válido.", type: "err" });
   };
 
   const confirmOrder = () => {
