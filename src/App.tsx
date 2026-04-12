@@ -842,34 +842,34 @@ export default function App() {
       </div>
 
       {/* Navigation */}
-      <nav className="fixed top-0 left-0 right-0 z-50 flex items-center justify-between px-6 md:px-12 py-6 backdrop-blur-md bg-black/20 border-b border-white/5">
+      <nav className="fixed top-0 left-0 right-0 z-50 flex items-center justify-between px-4 md:px-12 py-4 md:py-6 backdrop-blur-md bg-black/20 border-b border-white/5">
         <motion.div 
           initial={{ opacity: 0, x: -20 }}
           animate={{ opacity: 1, x: 0 }}
-          className="text-2xl font-black tracking-tighter bg-gradient-to-r from-white to-purple-400 bg-clip-text text-transparent"
+          className="text-xl md:text-2xl font-black tracking-tighter bg-gradient-to-r from-white to-purple-400 bg-clip-text text-transparent"
         >
           TYANGO
         </motion.div>
-        <div className="flex items-center gap-4 md:gap-8">
+        <div className="flex items-center gap-2 md:gap-8">
           <a href="#configurar" className="hidden md:block text-xs font-bold uppercase tracking-widest text-white/60 hover:text-white transition-colors">Arma tu Snack</a>
           
           <motion.button 
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
             onClick={() => setShowReferralDashboard(true)}
-            className="flex items-center gap-2 px-4 py-2 bg-white/5 hover:bg-white/10 border border-white/10 rounded-full text-[10px] font-bold uppercase tracking-widest transition-all"
+            className="flex items-center gap-2 px-3 md:px-4 py-2 bg-white/5 hover:bg-white/10 border border-white/10 rounded-full text-[10px] font-bold uppercase tracking-widest transition-all"
           >
             <Gift size={14} className="text-purple-400" />
-            <span>Mis Referidos</span>
+            <span className="hidden sm:inline">Mis Referidos</span>
           </motion.button>
 
           <motion.a 
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
             href="#configurar" 
-            className="px-6 py-2 bg-purple-600 hover:bg-purple-500 rounded-full text-[10px] font-bold uppercase tracking-widest transition-all shadow-lg shadow-purple-600/20"
+            className="px-4 md:px-6 py-2 bg-purple-600 hover:bg-purple-500 rounded-full text-[10px] font-bold uppercase tracking-widest transition-all shadow-lg shadow-purple-600/20"
           >
-            Pedir Ahora
+            Pedir <span className="hidden sm:inline">Ahora</span>
           </motion.a>
         </div>
       </nav>
@@ -907,7 +907,7 @@ export default function App() {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.1 }}
-          className="text-6xl md:text-9xl font-black tracking-tighter leading-[0.85] mb-8"
+          className="text-5xl md:text-9xl font-black tracking-tighter leading-[0.85] mb-8"
         >
           FRUTA.<br />
           <span className="text-purple-500">TU ESTILO.</span>
@@ -917,7 +917,7 @@ export default function App() {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.2 }}
-          className="max-w-xl text-lg text-white/50 font-medium leading-relaxed mb-12"
+          className="max-w-xl text-base md:text-lg text-white/50 font-medium leading-relaxed mb-12"
         >
           Personaliza tu snack de fruta fresca con aderezos picantes y recibe tu TYANGO sellado al vacío. Frescura total, sabor explosivo.
         </motion.p>
@@ -1109,20 +1109,20 @@ export default function App() {
                 <span className="flex items-center justify-center w-8 h-8 rounded-full bg-purple-600 text-[10px] font-black">03</span>
                 <h3 className="text-sm font-black uppercase tracking-widest">Código de Descuento</h3>
               </div>
-              <div className="flex gap-2">
+              <div className="flex flex-col sm:flex-row gap-3">
                 <input 
                   type="text" 
                   value={referralInput}
                   onChange={(e) => setReferralInput(e.target.value)}
                   placeholder="Ej: TYANGO10"
-                  className="flex-1 bg-white/5 border border-white/10 rounded-2xl px-6 py-4 text-sm font-bold uppercase tracking-widest focus:outline-none focus:border-purple-500 transition-colors"
+                  className="w-full sm:flex-1 bg-white/5 border border-white/10 rounded-2xl px-6 py-4 text-sm font-bold uppercase tracking-widest focus:outline-none focus:border-purple-500 transition-colors"
                 />
                 <motion.button 
                   whileHover={{ scale: 1.05 }}
                   whileTap={{ scale: 0.95 }}
                   animate={isReferralApplied ? { scale: [1, 1.1, 1], rotate: [0, 2, -2, 0] } : {}}
                   onClick={applyReferral}
-                  className={`px-8 py-4 font-black uppercase tracking-widest rounded-2xl transition-all flex items-center gap-2 ${
+                  className={`w-full sm:w-auto px-8 py-4 font-black uppercase tracking-widest rounded-2xl transition-all flex items-center justify-center gap-2 ${
                     isReferralApplied 
                       ? "bg-green-500 text-white" 
                       : "bg-white text-black hover:bg-purple-500 hover:text-white"
@@ -1183,16 +1183,16 @@ export default function App() {
               </div>
 
               {/* Size Selector */}
-              <div className="flex p-1 bg-white/5 border border-white/10 rounded-full">
+              <div className="grid grid-cols-2 sm:flex p-1 bg-white/5 border border-white/10 rounded-3xl sm:rounded-full gap-1">
                 {Object.entries(sizes).map(([key, size]) => (
                   <motion.button
                     key={key}
                     whileHover={{ scale: 1.02 }}
                     whileTap={{ scale: 0.98 }}
                     onClick={() => setSelectedSize(key)}
-                    className={`flex-1 py-3 rounded-full text-[10px] font-black uppercase tracking-widest transition-all ${
+                    className={`py-3 rounded-2xl sm:rounded-full text-[10px] font-black uppercase tracking-widest transition-all ${
                       selectedSize === key ? "bg-white text-black shadow-xl" : "text-white/40 hover:text-white/60"
-                    }`}
+                    } ${key === 'premium' ? 'col-span-2 sm:flex-1' : 'flex-1'}`}
                   >
                     {size.label} {size.weight}g
                   </motion.button>
@@ -1414,7 +1414,7 @@ export default function App() {
               initial={{ scale: 0.9, opacity: 0, y: 20 }}
               animate={{ scale: 1, opacity: 1, y: 0 }}
               exit={{ scale: 0.9, opacity: 0, y: 20 }}
-              className="relative w-full max-w-lg bg-[#111] border border-white/10 rounded-[40px] p-10"
+              className="relative w-full max-w-lg bg-[#111] border border-white/10 rounded-3xl md:rounded-[40px] p-6 md:p-10"
             >
               <button 
                 onClick={() => setShowReviewForm(false)}
@@ -1489,12 +1489,12 @@ export default function App() {
 
       {/* Footer */}
       <footer className="py-20 px-6 border-t border-white/5">
-        <div className="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-center gap-12">
-          <div className="text-center md:text-left">
+        <div className="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-center gap-12 text-center md:text-left">
+          <div>
             <div className="text-3xl font-black tracking-tighter mb-2">TYANGO</div>
             <p className="text-[10px] font-bold uppercase tracking-widest text-white/20">Quito, Ecuador · 2025</p>
           </div>
-          <div className="flex gap-8">
+          <div className="flex flex-wrap justify-center gap-6 md:gap-8">
             <motion.a whileHover={{ y: -2 }} href="https://www.instagram.com/tyango_ec/" target="_blank" rel="noopener noreferrer" className="text-[10px] font-black uppercase tracking-widest text-white/40 hover:text-white transition-colors">Instagram</motion.a>
             <motion.a whileHover={{ y: -2 }} href="https://www.tiktok.com/@tyango_ec" target="_blank" rel="noopener noreferrer" className="text-[10px] font-black uppercase tracking-widest text-white/40 hover:text-white transition-colors">TikTok</motion.a>
             <motion.a whileHover={{ y: -2 }} href="https://wa.me/message/HXXJ4PZHNIAQE1" target="_blank" rel="noopener noreferrer" className="text-[10px] font-black uppercase tracking-widest text-white/40 hover:text-white transition-colors">WhatsApp</motion.a>
@@ -1515,7 +1515,7 @@ export default function App() {
               initial={{ scale: 0.9, opacity: 0, y: 20 }}
               animate={{ scale: 1, opacity: 1, y: 0 }}
               exit={{ scale: 0.9, opacity: 0, y: 20 }}
-              className="relative w-full max-w-lg bg-[#111] border border-white/10 rounded-[40px] p-10 overflow-y-auto max-h-[90vh]"
+              className="relative w-full max-w-lg bg-[#111] border border-white/10 rounded-3xl md:rounded-[40px] p-6 md:p-10 overflow-y-auto max-h-[90vh]"
             >
               <button 
                 onClick={() => setShowReferralDashboard(false)}
@@ -1530,15 +1530,15 @@ export default function App() {
                   <p className="text-xs font-medium text-white/40">Gana recompensas compartiendo el sabor TYANGO.</p>
                 </div>
 
-                <div className="p-8 bg-purple-600/10 border border-purple-500/20 rounded-[32px] space-y-4">
+                <div className="p-6 md:p-8 bg-purple-600/10 border border-purple-500/20 rounded-[32px] space-y-4">
                   <div className="text-[10px] font-black uppercase tracking-widest text-purple-400">Tu Código Único</div>
-                  <div className="flex gap-2">
-                    <div className="flex-1 bg-black/40 border border-white/10 rounded-2xl px-6 py-4 text-xl font-black tracking-widest text-center">
+                  <div className="flex flex-col sm:flex-row gap-2">
+                    <div className="flex-1 bg-black/40 border border-white/10 rounded-2xl px-6 py-4 text-lg md:text-xl font-black tracking-widest text-center">
                       {userProfile.referralCode}
                     </div>
                     <button 
                       onClick={copyReferralCode}
-                      className={`px-6 rounded-2xl transition-all flex items-center gap-2 ${
+                      className={`px-6 py-4 sm:py-0 rounded-2xl transition-all flex items-center justify-center gap-2 ${
                         isCopied 
                           ? "bg-green-500 text-white" 
                           : "bg-white text-black hover:bg-purple-500 hover:text-white"
@@ -1630,7 +1630,7 @@ export default function App() {
               initial={{ scale: 0.9, opacity: 0, y: 20 }}
               animate={{ scale: 1, opacity: 1, y: 0 }}
               exit={{ scale: 0.9, opacity: 0, y: 20 }}
-              className="relative w-full max-w-lg bg-[#111] border border-white/10 rounded-[40px] p-10 max-h-[90vh] overflow-y-auto"
+              className="relative w-full max-w-lg bg-[#111] border border-white/10 rounded-3xl md:rounded-[40px] p-6 md:p-10 max-h-[90vh] overflow-y-auto"
             >
               <button 
                 onClick={() => setShowReviewModal(false)}
@@ -1714,7 +1714,7 @@ export default function App() {
               initial={{ scale: 0.9, opacity: 0, y: 20 }}
               animate={{ scale: 1, opacity: 1, y: 0 }}
               exit={{ scale: 0.9, opacity: 0, y: 20 }}
-              className="relative w-full max-w-lg bg-[#111] border border-white/10 rounded-[40px] p-10"
+              className="relative w-full max-w-lg bg-[#111] border border-white/10 rounded-3xl md:rounded-[40px] p-6 md:p-10"
             >
               <button 
                 onClick={() => setShowShareModal(false)}
