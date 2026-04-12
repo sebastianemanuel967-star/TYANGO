@@ -137,6 +137,9 @@ export default function App() {
   // Review Modal State
   const [showReviewModal, setShowReviewModal] = useState<boolean>(false);
 
+  // Payment Modal State
+  const [showPaymentModal, setShowPaymentModal] = useState<boolean>(false);
+
   // Initialize Local Profile and Data
   useEffect(() => {
     // Initialize or load local profile
@@ -425,6 +428,11 @@ export default function App() {
 
   const handleFinalConfirmation = async () => {
     setShowReviewModal(false);
+    setShowPaymentModal(true);
+  };
+
+  const finalizeWhatsAppRedirect = async () => {
+    setShowPaymentModal(false);
     
     // Show success animation first
     setShowOrderSuccessAnimation(true);
@@ -442,14 +450,15 @@ export default function App() {
       const fruitNames = selectedFruits.map(f => `${f.emoji} ${f.name}`).join(" + ");
       
       const msg = encodeURIComponent(
-        `¡Hola TYANGO! 🍓 Quiero hacer mi pedido (${selectionMode.toUpperCase()}):\n\n` +
+        `¡Hola TYANGO! 🍓 He realizado el pago de mi pedido (${selectionMode.toUpperCase()}):\n\n` +
         `🍎 Frutas: ${fruitNames}\n` +
         `🌶️ Aderezos: ${tops}\n` +
         `📦 Tamaño: ${sz.label} (${sz.weight}g)\n` +
         `🔢 Cantidad: ${quantity} unidades\n` +
         `⚖️ Peso Total: ${sz.weight * quantity}g\n` +
-        `💜 Total: $${total}\n\n` +
-        `¡Por favor confírmame! 🙌`
+        `💜 Total: $${total}\n` +
+        `🏦 Pago: Transferencia Banco Pichincha\n\n` +
+        `¡Por favor confírmame el recibo! 🙌`
       );
 
       // Save to local history
@@ -699,13 +708,15 @@ export default function App() {
                 </div>
                 
                 {/* Mode Toggle */}
-                <div className="flex p-1 bg-white/5 border border-white/10 rounded-2xl w-fit">
+                <div className="flex p-1.5 bg-white/5 border border-white/10 rounded-2xl w-fit gap-2">
                   <motion.button 
                     whileHover={{ scale: 1.05 }}
                     whileTap={{ scale: 0.95 }}
                     onClick={() => handleModeChange('individual')}
-                    className={`px-6 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${
-                      selectionMode === 'individual' ? "bg-white text-black" : "text-white/40 hover:text-white"
+                    className={`px-6 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all border ${
+                      selectionMode === 'individual' 
+                        ? "bg-purple-600 border-purple-400 text-white shadow-lg shadow-purple-600/40" 
+                        : "bg-purple-600/10 border-purple-500/20 text-purple-300/60 hover:text-purple-200 hover:bg-purple-600/20"
                     }`}
                   >
                     Individual
@@ -714,8 +725,10 @@ export default function App() {
                     whileHover={{ scale: 1.05 }}
                     whileTap={{ scale: 0.95 }}
                     onClick={() => handleModeChange('mix')}
-                    className={`px-6 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${
-                      selectionMode === 'mix' ? "bg-white text-black" : "text-white/40 hover:text-white"
+                    className={`px-6 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all border ${
+                      selectionMode === 'mix' 
+                        ? "bg-amber-500 border-amber-300 text-black shadow-lg shadow-amber-500/40" 
+                        : "bg-amber-500/10 border-amber-500/20 text-amber-300/60 hover:text-amber-200 hover:bg-amber-500/20"
                     }`}
                   >
                     Mix (Máx 3)
@@ -874,20 +887,39 @@ export default function App() {
               </div>
 
               {/* Size Selector */}
-              <div className="grid grid-cols-2 sm:flex p-1 bg-white/5 border border-white/10 rounded-3xl sm:rounded-full gap-1">
-                {Object.entries(sizes).map(([key, size]) => (
-                  <motion.button
-                    key={key}
-                    whileHover={{ scale: 1.02 }}
-                    whileTap={{ scale: 0.98 }}
-                    onClick={() => setSelectedSize(key)}
-                    className={`py-3 rounded-2xl sm:rounded-full text-[10px] font-black uppercase tracking-widest transition-all ${
-                      selectedSize === key ? "bg-white text-black shadow-xl" : "text-white/40 hover:text-white/60"
-                    } ${key === 'premium' ? 'col-span-2 sm:flex-1' : 'flex-1'}`}
-                  >
-                    {size.label} {size.weight}g
-                  </motion.button>
-                ))}
+              <div className="grid grid-cols-2 sm:flex p-1.5 bg-white/5 border border-white/10 rounded-3xl sm:rounded-full gap-1.5">
+                {Object.entries(sizes).map(([key, size]) => {
+                  const isActive = selectedSize === key;
+                  const sizeColors = {
+                    mini: isActive ? "bg-blue-500 text-white shadow-blue-500/20" : "hover:text-blue-400",
+                    clasico: isActive ? "bg-purple-600 text-white shadow-purple-600/20" : "hover:text-purple-400",
+                    premium: isActive ? "bg-amber-500 text-black shadow-amber-500/20" : "hover:text-amber-400"
+                  };
+                  
+                  return (
+                    <motion.button
+                      key={key}
+                      whileHover={size.isSoldOut ? {} : { scale: 1.02 }}
+                      whileTap={size.isSoldOut ? {} : { scale: 0.98 }}
+                      onClick={() => !size.isSoldOut && setSelectedSize(key)}
+                      disabled={size.isSoldOut}
+                      className={`relative py-3.5 rounded-2xl sm:rounded-full text-[10px] font-black uppercase tracking-widest transition-all shadow-lg ${
+                        sizeColors[key as keyof typeof sizeColors]
+                      } ${!isActive ? "text-white/40 bg-transparent" : ""} ${
+                        key === 'premium' ? 'col-span-2 sm:flex-1' : 'flex-1'
+                      } ${size.isSoldOut ? "opacity-50 grayscale cursor-not-allowed" : ""}`}
+                    >
+                      <span className={size.isSoldOut ? "line-through opacity-50" : ""}>
+                        {size.label} {size.weight}g
+                      </span>
+                      {size.isSoldOut && (
+                        <span className="absolute inset-0 flex items-center justify-center text-[8px] font-black tracking-[0.2em] text-white bg-black/40 rounded-inherit">
+                          AGOTADO
+                        </span>
+                      )}
+                    </motion.button>
+                  );
+                })}
               </div>
 
               {/* Quantity Selector */}
@@ -1386,6 +1418,83 @@ export default function App() {
                     Confirmar
                   </motion.button>
                 </div>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Payment Modal */}
+      <AnimatePresence>
+        {showPaymentModal && (
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[250] flex items-center justify-center p-6 bg-black/90 backdrop-blur-2xl"
+          >
+            <motion.div 
+              initial={{ scale: 0.9, opacity: 0, y: 20 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.9, opacity: 0, y: 20 }}
+              className="relative w-full max-w-lg bg-[#111] border border-white/10 rounded-[40px] p-8 md:p-12"
+            >
+              <div className="space-y-8">
+                <div className="flex items-center gap-4">
+                  <span className="flex items-center justify-center w-8 h-8 rounded-full bg-amber-500 text-black text-[10px] font-black">05</span>
+                  <h2 className="text-3xl font-black tracking-tighter text-white">REALIZA TU <span className="text-amber-500">PAGO.</span></h2>
+                </div>
+                
+                <div className="p-6 bg-white/5 border border-white/10 rounded-3xl space-y-6">
+                  <div className="flex items-center justify-between">
+                    <div className="text-[10px] font-black uppercase tracking-widest text-white/40">Banco</div>
+                    <div className="text-sm font-bold text-white">Banco Pichincha</div>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <div className="text-[10px] font-black uppercase tracking-widest text-white/40">Número de Cuenta</div>
+                    <div className="flex items-center gap-3">
+                      <div className="text-sm font-bold text-white">2213524970</div>
+                      <button 
+                        onClick={() => {
+                          navigator.clipboard.writeText("2213524970");
+                          setToastMsg("Número copiado");
+                          setShowToast(true);
+                          setTimeout(() => setShowToast(false), 2000);
+                        }}
+                        className="p-2 bg-white/5 hover:bg-white/10 rounded-lg transition-colors"
+                      >
+                        <Copy size={14} className="text-amber-500" />
+                      </button>
+                    </div>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <div className="text-[10px] font-black uppercase tracking-widest text-white/40">Monto Total</div>
+                    <div className="text-2xl font-black text-amber-500">${totalPrice}</div>
+                  </div>
+                </div>
+
+                <div className="bg-amber-500/10 border border-amber-500/20 p-4 rounded-2xl">
+                  <p className="text-[10px] font-bold text-amber-200/80 leading-relaxed text-center uppercase tracking-wider">
+                    Una vez realizada la transferencia, haz clic en el botón de abajo para enviarnos el comprobante por WhatsApp.
+                  </p>
+                </div>
+
+                <motion.button 
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                  onClick={finalizeWhatsAppRedirect}
+                  className="w-full py-5 bg-amber-500 hover:bg-amber-400 text-black rounded-full text-xs font-black uppercase tracking-widest transition-all shadow-xl shadow-amber-500/20 flex items-center justify-center gap-3"
+                >
+                  <MessageCircle size={18} />
+                  He realizado el pago
+                </motion.button>
+                
+                <button 
+                  onClick={() => setShowPaymentModal(false)}
+                  className="w-full text-[10px] font-bold uppercase tracking-widest text-white/20 hover:text-white/40 transition-colors"
+                >
+                  Volver
+                </button>
               </div>
             </motion.div>
           </motion.div>

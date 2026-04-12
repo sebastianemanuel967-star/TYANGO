@@ -22,6 +22,7 @@ export interface Size {
   label: string;
   price: number;
   weight: number;
+  isSoldOut?: boolean;
 }
 
 export const fruits: Fruit[] = [
@@ -47,7 +48,7 @@ export const toppings: Topping[] = [
 export const sizes: Record<string, Size> = {
   mini: { label: "Mini", weight: 60, price: 0.6 },
   clasico: { label: "Clásico", weight: 100, price: 1.25 },
-  premium: { label: "Premium", weight: 150, price: 1.75 },
+  premium: { label: "Premium", weight: 150, price: 1.75, isSoldOut: true },
 };
 
 export const referralCodes: Record<string, number> = {
@@ -61,28 +62,28 @@ export const referralCodes: Record<string, number> = {
 
 export const testimonials: Testimonial[] = [
   {
-    name: "María García",
-    role: "Estudiante",
-    text: "¡ENCHILATE con TYANGO! La mejor combinación de mango con tajín picante. Adictivo.",
-    avatar: "👩‍🎓",
+    name: "María José Terán",
+    role: "Cliente Frecuente",
+    text: "Me encanta que la fruta siempre llega súper fresca. El mango con bastante tajín y limón es mi snack favorito de todas las tardes.",
+    avatar: "👩‍💻",
   },
   {
-    name: "Carlos López",
+    name: "Juan Sebastián",
     role: "Deportista",
-    text: "Perfecto para después del gym. Fruta fresca, saludable y delicioso. ¡Recomendado!",
-    avatar: "💪",
+    text: "El servicio a domicilio en Cumbayá fue increíblemente rápido. El empaque doypack es genial porque mantiene la fruta fría y crujiente.",
+    avatar: "🏃‍♂️",
   },
   {
-    name: "Ana Martínez",
-    role: "Emprendedora",
-    text: "La mejor opción para un snack rápido en la oficina. Calidad premium a buen precio.",
-    avatar: "👩‍💼",
+    name: "Valeria Noboa",
+    role: "Estudiante",
+    text: "Probé el mix de piña y sandía con Takis por curiosidad y ¡wow! No pensé que esa combinación fuera tan adictiva. 10/10.",
+    avatar: "🎨",
   },
   {
-    name: "Diego Rodríguez",
-    role: "Influencer",
-    text: "¡ENCHILATE! Es la frase perfecta para describir TYANGO. Sabor explosivo.",
-    avatar: "🎬",
+    name: "Ricardo Espinoza",
+    role: "Padre de familia",
+    text: "Es la mejor opción para que mis hijos coman fruta sin quejarse. Les encanta el toque de miel y las gomitas. Muy recomendado.",
+    avatar: "👨‍👩‍👧‍👦",
   },
 ];
 
