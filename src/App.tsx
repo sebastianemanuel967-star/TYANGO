@@ -19,17 +19,10 @@ import {
   Zap,
   ChevronDown,
   Gift,
-  LogOut,
   User as UserIcon,
   Instagram
 } from "lucide-react";
-import { auth, db, googleProvider } from "./lib/firebase";
-import { 
-  signInWithPopup, 
-  signOut, 
-  onAuthStateChanged, 
-  User 
-} from "firebase/auth";
+import { db } from "./lib/firebase";
 import { 
   collection, 
   doc, 
@@ -77,9 +70,7 @@ interface UserProfile {
   referralsCount: number;
   totalRewards: number;
   referredFriends: string[];
-  email?: string;
   displayName?: string;
-  photoURL?: string;
 }
 
 interface OrderRecord {
@@ -408,7 +399,6 @@ const QUITO_BARRIOS = [
 
 // ─── MAIN APP ───
 export default function App() {
-  const [user, setUser] = useState<User | null>(null);
   const [selectionMode, setSelectionMode] = useState<'individual' | 'mix'>('individual');
   const [selectedFruits, setSelectedFruits] = useState<Fruit[]>([]);
   const [selectedToppings, setSelectedToppings] = useState<Topping[]>([]);
@@ -447,49 +437,30 @@ export default function App() {
   // Review Modal State
   const [showReviewModal, setShowReviewModal] = useState<boolean>(false);
 
-  // Initialize Firebase Auth and Data
+  // Initialize Local Profile and Data
   useEffect(() => {
-    // Test connection
-    const testConnection = async () => {
-      try {
-        await getDocFromServer(doc(db, 'test', 'connection'));
-      } catch (error) {
-        if(error instanceof Error && error.message.includes('the client is offline')) {
-          console.error("Please check your Firebase configuration.");
-          setToastMsg("Error de conexión con la base de datos");
-          setShowToast(true);
-        }
-      }
-    };
-    testConnection();
+    // Initialize or load local profile
+    const savedProfile = localStorage.getItem("tyango_profile");
+    if (savedProfile) {
+      setUserProfile(JSON.parse(savedProfile));
+    } else {
+      const newProfile: UserProfile = {
+        userId: `guest_${Math.random().toString(36).substr(2, 9)}`,
+        referralCode: generateUniqueCode(),
+        referralsCount: 0,
+        totalRewards: 0,
+        referredFriends: [],
+        displayName: "Cliente Tyango"
+      };
+      localStorage.setItem("tyango_profile", JSON.stringify(newProfile));
+      setUserProfile(newProfile);
+    }
 
-    const unsubscribeAuth = onAuthStateChanged(auth, async (firebaseUser) => {
-      setUser(firebaseUser);
-      if (firebaseUser) {
-        // Fetch or create profile
-        const profileRef = doc(db, "users", firebaseUser.uid);
-        const profileSnap = await getDoc(profileRef);
-        
-        if (profileSnap.exists()) {
-          setUserProfile(profileSnap.data() as UserProfile);
-        } else {
-          const newProfile: UserProfile = {
-            userId: firebaseUser.uid,
-            referralCode: generateUniqueCode(),
-            referralsCount: 0,
-            totalRewards: 0,
-            referredFriends: [],
-            email: firebaseUser.email || "",
-            displayName: firebaseUser.displayName || "",
-            photoURL: firebaseUser.photoURL || ""
-          };
-          await setDoc(profileRef, newProfile);
-          setUserProfile(newProfile);
-        }
-      } else {
-        setUserProfile(null);
-      }
-    });
+    // Load local order history
+    const savedOrders = localStorage.getItem("tyango_orders");
+    if (savedOrders) {
+      setOrderHistory(JSON.parse(savedOrders));
+    }
 
     // Real-time reviews
     const q = query(collection(db, "reviews"), orderBy("date", "desc"), limit(20));
@@ -502,7 +473,6 @@ export default function App() {
       if (fetchedReviews.length > 0) {
         setReviews(fetchedReviews);
       } else {
-        // Fallback to testimonials if no reviews in DB
         const initialReviews: Review[] = testimonials.map((t, i) => ({
           id: `rev-${i}`,
           name: t.name,
@@ -518,59 +488,9 @@ export default function App() {
     });
 
     return () => {
-      unsubscribeAuth();
       unsubscribeReviews();
     };
   }, []);
-
-  // Real-time Order History
-  useEffect(() => {
-    if (!user) {
-      setOrderHistory([]);
-      return;
-    }
-
-    const ordersQuery = query(
-      collection(db, "orders"),
-      orderBy("date", "desc")
-    );
-    
-    const unsubscribeOrders = onSnapshot(ordersQuery, (snapshot) => {
-      const orders = snapshot.docs
-        .map(doc => ({ id: doc.id, ...doc.data() } as OrderRecord))
-        .filter(order => order.userId === user.uid);
-      setOrderHistory(orders);
-    }, (error) => {
-      console.error("Firestore Error (Orders):", error);
-    });
-
-    return () => unsubscribeOrders();
-  }, [user]);
-
-  const handleLogin = async () => {
-    try {
-      await signInWithPopup(auth, googleProvider);
-      setToastMsg("¡Bienvenido a TYANGO! 💜");
-      setShowToast(true);
-      setTimeout(() => setShowToast(false), 3000);
-    } catch (error) {
-      console.error("Login Error:", error);
-      setToastMsg("Error al iniciar sesión");
-      setShowToast(true);
-      setTimeout(() => setShowToast(false), 3000);
-    }
-  };
-
-  const handleLogout = async () => {
-    try {
-      await signOut(auth);
-      setToastMsg("Sesión cerrada");
-      setShowToast(true);
-      setTimeout(() => setShowToast(false), 3000);
-    } catch (error) {
-      console.error("Logout Error:", error);
-    }
-  };
 
   // Live Feed Logic
   useEffect(() => {
@@ -598,12 +518,6 @@ export default function App() {
   const handleAddReview = async (e: FormEvent) => {
     e.preventDefault();
     if (!newReview.text || !newReview.name) return;
-    if (!user) {
-      setToastMsg("Inicia sesión para dejar una reseña");
-      setShowToast(true);
-      setTimeout(() => setShowToast(false), 3000);
-      return;
-    }
 
     try {
       const reviewData = {
@@ -612,7 +526,7 @@ export default function App() {
         text: newReview.text,
         date: new Date().toISOString(),
         avatar: ["👤", "🥑", "🍓", "🍍", "🥭"][Math.floor(Math.random() * 5)],
-        uid: user.uid
+        uid: userProfile?.userId || "guest"
       };
 
       await addDoc(collection(db, "reviews"), reviewData);
@@ -794,24 +708,28 @@ export default function App() {
         `¡Por favor confírmame! 🙌`
       );
 
-      // Save to Firestore if logged in
-      if (user) {
-        try {
-          await addDoc(collection(db, "orders"), {
-            userId: user.uid,
-            items: fruitNames,
-            toppings: tops,
-            size: sz.label,
-            quantity: quantity,
-            total: parseFloat(total),
-            date: serverTimestamp()
-          });
-        } catch (error) {
-          console.error("Error saving order:", error);
-        }
-      }
+      // Save to local history
+      const newOrder: OrderRecord = {
+        id: `order_${Date.now()}`,
+        userId: userProfile?.userId || "guest",
+        items: fruitNames,
+        toppings: tops,
+        size: sz.label,
+        quantity: quantity,
+        total: parseFloat(total),
+        date: new Date().toISOString()
+      };
 
-      window.open(`https://wa.me/593994124996?text=${msg}`, "_blank");
+      const updatedHistory = [newOrder, ...orderHistory];
+      setOrderHistory(updatedHistory);
+      localStorage.setItem("tyango_orders", JSON.stringify(updatedHistory));
+
+      // Use api.whatsapp.com for better mobile deep linking
+      const whatsappUrl = `https://api.whatsapp.com/send?phone=593994124996&text=${msg}`;
+      
+      // On mobile, window.open can be blocked. window.location.href is more reliable for redirects.
+      window.location.href = whatsappUrl;
+      
       setTotalOrders(prev => prev + 1);
       setToastMsg(`¡Gracias por tu compra! Tu TYANGO está en camino.`);
       setShowToast(true);
@@ -834,7 +752,7 @@ export default function App() {
     if (!sharePlatform) return;
     
     if (sharePlatform === 'whatsapp') {
-      window.open(`https://wa.me/?text=${encodeURIComponent(customShareText)}`, "_blank");
+      window.location.href = `https://api.whatsapp.com/send?text=${encodeURIComponent(customShareText)}`;
     } else if (sharePlatform === 'instagram') {
       navigator.clipboard.writeText(customShareText);
       setToastMsg("¡Copiado para Instagram! 📸");
@@ -882,51 +800,15 @@ export default function App() {
         <div className="flex items-center gap-4 md:gap-8">
           <a href="#configurar" className="hidden md:block text-xs font-bold uppercase tracking-widest text-white/60 hover:text-white transition-colors">Arma tu Snack</a>
           
-          {user ? (
-            <div className="flex items-center gap-4">
-              <motion.button 
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-                onClick={() => setShowReferralDashboard(true)}
-                className="flex items-center gap-2 px-4 py-2 bg-white/5 hover:bg-white/10 border border-white/10 rounded-full text-[10px] font-bold uppercase tracking-widest transition-all"
-              >
-                <Gift size={14} className="text-purple-400" />
-                <span className="hidden sm:inline">Mis Referidos</span>
-              </motion.button>
-              <div className="flex items-center gap-3">
-                {user.photoURL ? (
-                  <motion.img 
-                    whileHover={{ scale: 1.1 }}
-                    src={user.photoURL} 
-                    alt="Profile" 
-                    className="w-8 h-8 rounded-full border border-white/10" 
-                    referrerPolicy="no-referrer" 
-                  />
-                ) : (
-                  <div className="w-8 h-8 rounded-full bg-purple-600 flex items-center justify-center">
-                    <UserIcon size={14} />
-                  </div>
-                )}
-                <motion.button 
-                  whileHover={{ scale: 1.1, rotate: 5 }}
-                  whileTap={{ scale: 0.9 }}
-                  onClick={handleLogout} 
-                  className="text-white/40 hover:text-white transition-colors"
-                >
-                  <LogOut size={16} />
-                </motion.button>
-              </div>
-            </div>
-          ) : (
-            <motion.button 
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-              onClick={handleLogin}
-              className="px-6 py-2 bg-white/5 hover:bg-white/10 border border-white/10 rounded-full text-[10px] font-bold uppercase tracking-widest transition-all"
-            >
-              Iniciar Sesión
-            </motion.button>
-          )}
+          <motion.button 
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+            onClick={() => setShowReferralDashboard(true)}
+            className="flex items-center gap-2 px-4 py-2 bg-white/5 hover:bg-white/10 border border-white/10 rounded-full text-[10px] font-bold uppercase tracking-widest transition-all"
+          >
+            <Gift size={14} className="text-purple-400" />
+            <span>Mis Referidos</span>
+          </motion.button>
 
           <motion.a 
             whileHover={{ scale: 1.05 }}
@@ -1562,7 +1444,7 @@ export default function App() {
           <div className="flex gap-8">
             <motion.a whileHover={{ y: -2 }} href="https://www.instagram.com/tyango_ec/" target="_blank" rel="noopener noreferrer" className="text-[10px] font-black uppercase tracking-widest text-white/40 hover:text-white transition-colors">Instagram</motion.a>
             <motion.a whileHover={{ y: -2 }} href="https://www.tiktok.com/@tyango_ec" target="_blank" rel="noopener noreferrer" className="text-[10px] font-black uppercase tracking-widest text-white/40 hover:text-white transition-colors">TikTok</motion.a>
-            <motion.a whileHover={{ y: -2 }} href="https://wa.me/593994124996" target="_blank" rel="noopener noreferrer" className="text-[10px] font-black uppercase tracking-widest text-white/40 hover:text-white transition-colors">WhatsApp</motion.a>
+            <motion.a whileHover={{ y: -2 }} href="https://wa.me/message/HXXJ4PZHNIAQE1" target="_blank" rel="noopener noreferrer" className="text-[10px] font-black uppercase tracking-widest text-white/40 hover:text-white transition-colors">WhatsApp</motion.a>
           </div>
         </div>
       </footer>
@@ -1629,7 +1511,7 @@ export default function App() {
                 <button 
                   onClick={() => {
                     const text = `¡Prueba TYANGO! 🍓 Usa mi código ${userProfile.referralCode} para un 15% de descuento en tu primer snack de fruta. 👉 ${window.location.href}`;
-                    window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, "_blank");
+                    window.location.href = `https://api.whatsapp.com/send?text=${encodeURIComponent(text)}`;
                   }}
                   className="w-full py-5 bg-green-600 hover:bg-green-500 rounded-full text-xs font-black uppercase tracking-widest transition-all flex items-center justify-center gap-3"
                 >
@@ -1653,7 +1535,7 @@ export default function App() {
                           <div className="flex justify-between items-start">
                             <div className="space-y-1">
                               <div className="text-[10px] font-black uppercase tracking-widest text-purple-400">
-                                {order.date?.toDate ? order.date.toDate().toLocaleDateString('es-EC', { day: '2-digit', month: 'short', year: 'numeric' }) : 'Reciente'}
+                                {typeof order.date === 'string' ? new Date(order.date).toLocaleDateString('es-EC', { day: '2-digit', month: 'short', year: 'numeric' }) : 'Reciente'}
                               </div>
                               <div className="text-sm font-bold">{order.items}</div>
                             </div>
