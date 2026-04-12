@@ -21,7 +21,6 @@ import {
   Gift,
   LogOut,
   User as UserIcon,
-  Twitter,
   Instagram
 } from "lucide-react";
 import { auth, db, googleProvider } from "./lib/firebase";
@@ -81,6 +80,17 @@ interface UserProfile {
   email?: string;
   displayName?: string;
   photoURL?: string;
+}
+
+interface OrderRecord {
+  id: string;
+  userId: string;
+  items: string;
+  toppings: string;
+  size: string;
+  quantity: number;
+  total: number;
+  date: any;
 }
 
 interface Review {
@@ -385,7 +395,16 @@ const toppingArt = {
   },
 };
 
-const QUITO_NAMES = ["Sebas", "Mateo", "Valentina", "Nicolás", "Camila", "Andrés", "Isabella", "Felipe", "Martina", "Lucas", "Daniela", "Joaquín"];
+const QUITO_NAMES = [
+  "Sebas", "Mateo", "Valentina", "Nicolás", "Camila", "Andrés", "Isabella", "Felipe", "Martina", "Lucas", "Daniela", "Joaquín",
+  "Alejandra", "Santiago", "Paula", "Gabriel", "Lucía", "Emilio", "Victoria", "Benjamín", "Ximena", "Ricardo", "Elena", "Francisco",
+  "Micaela", "Javier", "Sofía", "Diego", "Natalia", "Adrián", "Renata", "Matías"
+];
+
+const QUITO_BARRIOS = [
+  "Cumbayá", "La Carolina", "El Condado", "Quitumbe", "Villaflora", "San Rafael", "Tumbaco", "Carcelén", "La Floresta", "Guamaní",
+  "Ponciano", "Conocoto", "El Recreo", "Iñaquito", "Nayón", "Puembo"
+];
 
 // ─── MAIN APP ───
 export default function App() {
@@ -403,8 +422,11 @@ export default function App() {
   const bagCanvasRef = useRef<HTMLCanvasElement>(null);
   const [totalOrders, setTotalOrders] = useState<number>(124);
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
+  const [orderHistory, setOrderHistory] = useState<OrderRecord[]>([]);
   const [showReferralDashboard, setShowReferralDashboard] = useState<boolean>(false);
   const [showOrderSuccessAnimation, setShowOrderSuccessAnimation] = useState<boolean>(false);
+  const [isCopied, setIsCopied] = useState<boolean>(false);
+  const [isReferralApplied, setIsReferralApplied] = useState<boolean>(false);
   
   // Live Feed State
   const [liveOrder, setLiveOrder] = useState<string>("");
@@ -421,6 +443,9 @@ export default function App() {
 
   // Quantity State
   const [quantity, setQuantity] = useState<number>(1);
+
+  // Review Modal State
+  const [showReviewModal, setShowReviewModal] = useState<boolean>(false);
 
   // Initialize Firebase Auth and Data
   useEffect(() => {
@@ -498,6 +523,30 @@ export default function App() {
     };
   }, []);
 
+  // Real-time Order History
+  useEffect(() => {
+    if (!user) {
+      setOrderHistory([]);
+      return;
+    }
+
+    const ordersQuery = query(
+      collection(db, "orders"),
+      orderBy("date", "desc")
+    );
+    
+    const unsubscribeOrders = onSnapshot(ordersQuery, (snapshot) => {
+      const orders = snapshot.docs
+        .map(doc => ({ id: doc.id, ...doc.data() } as OrderRecord))
+        .filter(order => order.userId === user.uid);
+      setOrderHistory(orders);
+    }, (error) => {
+      console.error("Firestore Error (Orders):", error);
+    });
+
+    return () => unsubscribeOrders();
+  }, [user]);
+
   const handleLogin = async () => {
     try {
       await signInWithPopup(auth, googleProvider);
@@ -527,12 +576,15 @@ export default function App() {
   useEffect(() => {
     const generateOrder = () => {
       const name = QUITO_NAMES[Math.floor(Math.random() * QUITO_NAMES.length)];
+      const barrio = QUITO_BARRIOS[Math.floor(Math.random() * QUITO_BARRIOS.length)];
       const fruit = fruits[Math.floor(Math.random() * fruits.length)];
       const topping = toppings[Math.floor(Math.random() * toppings.length)];
       const isMix = Math.random() > 0.5;
       
       const orderType = isMix ? "un Tyango Mix" : `un Tyango de ${fruit.name}`;
-      return `${name} pidió ${orderType} con ${topping.name} ${topping.emoji}`;
+      const time = Math.random() > 0.5 ? "acaba de pedir" : "pidió hace un momento";
+      
+      return `${name} (${barrio}) ${time} ${orderType} con ${topping.name} ${topping.emoji}`;
     };
 
     setLiveOrder(generateOrder());
@@ -698,6 +750,8 @@ export default function App() {
     if (referralCodes[raw] !== undefined) {
       setDiscountPct(referralCodes[raw]);
       setReferralMsg({ text: `✓ Código ${raw} aplicado — ${referralCodes[raw]}% off`, type: "ok" });
+      setIsReferralApplied(true);
+      setTimeout(() => setIsReferralApplied(false), 2000);
     } else if (raw === userProfile?.referralCode) {
       setReferralMsg({ text: "No puedes usar tu propio código.", type: "err" });
     } else {
@@ -708,12 +762,17 @@ export default function App() {
 
   const confirmOrder = () => {
     if (selectedFruits.length === 0) return;
+    setShowReviewModal(true);
+  };
+
+  const handleFinalConfirmation = async () => {
+    setShowReviewModal(false);
     
     // Show success animation first
     setShowOrderSuccessAnimation(true);
     
     // Wait for animation to play before opening WhatsApp
-    setTimeout(() => {
+    setTimeout(async () => {
       setShowOrderSuccessAnimation(false);
       setOrderConfirmed(true);
       
@@ -734,6 +793,24 @@ export default function App() {
         `💜 Total: $${total}\n\n` +
         `¡Por favor confírmame! 🙌`
       );
+
+      // Save to Firestore if logged in
+      if (user) {
+        try {
+          await addDoc(collection(db, "orders"), {
+            userId: user.uid,
+            items: fruitNames,
+            toppings: tops,
+            size: sz.label,
+            quantity: quantity,
+            total: parseFloat(total),
+            date: serverTimestamp()
+          });
+        } catch (error) {
+          console.error("Error saving order:", error);
+        }
+      }
+
       window.open(`https://wa.me/593994124996?text=${msg}`, "_blank");
       setTotalOrders(prev => prev + 1);
       setToastMsg(`¡Gracias por tu compra! Tu TYANGO está en camino.`);
@@ -742,7 +819,7 @@ export default function App() {
     }, 2200);
   };
 
-  const shareCombination = (platform: 'whatsapp' | 'twitter' | 'instagram') => {
+  const shareCombination = (platform: 'whatsapp' | 'instagram') => {
     if (selectedFruits.length === 0) return;
     const tops = selectedToppings.length > 0 ? selectedToppings.map(t => t.name).join(", ") : "Sin aderezos";
     const fruitNames = selectedFruits.map(f => `${f.emoji} ${f.name}`).join(" + ");
@@ -758,8 +835,6 @@ export default function App() {
     
     if (sharePlatform === 'whatsapp') {
       window.open(`https://wa.me/?text=${encodeURIComponent(customShareText)}`, "_blank");
-    } else if (sharePlatform === 'twitter') {
-      window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent(customShareText)}`, "_blank");
     } else if (sharePlatform === 'instagram') {
       navigator.clipboard.writeText(customShareText);
       setToastMsg("¡Copiado para Instagram! 📸");
@@ -773,9 +848,13 @@ export default function App() {
   const copyReferralCode = () => {
     if (!userProfile) return;
     navigator.clipboard.writeText(userProfile.referralCode);
+    setIsCopied(true);
     setToastMsg("✓ Código copiado al portapapeles");
     setShowToast(true);
-    setTimeout(() => setShowToast(false), 3000);
+    setTimeout(() => {
+      setIsCopied(false);
+      setShowToast(false);
+    }, 3000);
   };
 
   const basePrice = sizes[selectedSize].price * quantity;
@@ -1106,10 +1185,16 @@ export default function App() {
                 <motion.button 
                   whileHover={{ scale: 1.05 }}
                   whileTap={{ scale: 0.95 }}
+                  animate={isReferralApplied ? { scale: [1, 1.1, 1], rotate: [0, 2, -2, 0] } : {}}
                   onClick={applyReferral}
-                  className="px-8 py-4 bg-white text-black font-black uppercase tracking-widest rounded-2xl hover:bg-purple-500 hover:text-white transition-all"
+                  className={`px-8 py-4 font-black uppercase tracking-widest rounded-2xl transition-all flex items-center gap-2 ${
+                    isReferralApplied 
+                      ? "bg-green-500 text-white" 
+                      : "bg-white text-black hover:bg-purple-500 hover:text-white"
+                  }`}
                 >
-                  Aplicar
+                  {isReferralApplied ? <CheckCircle2 size={16} /> : null}
+                  {isReferralApplied ? "Aplicado" : "Aplicar"}
                 </motion.button>
               </div>
               {referralMsg && (
@@ -1231,7 +1316,7 @@ export default function App() {
                     <span className="text-[8px] font-bold uppercase tracking-widest text-white/20">Compartir en</span>
                     <div className="h-px flex-1 bg-white/10" />
                   </div>
-                  <div className="grid grid-cols-3 gap-2">
+                  <div className="grid grid-cols-2 gap-2">
                     <motion.button 
                       whileHover={{ scale: 1.05, y: -2 }}
                       whileTap={{ scale: 0.95 }}
@@ -1241,16 +1326,6 @@ export default function App() {
                       title="WhatsApp"
                     >
                       <MessageCircle size={16} className="text-white/40 group-hover:text-green-400 transition-colors" />
-                    </motion.button>
-                    <motion.button 
-                      whileHover={{ scale: 1.05, y: -2 }}
-                      whileTap={{ scale: 0.95 }}
-                      onClick={() => shareCombination('twitter')}
-                      disabled={selectedFruits.length === 0}
-                      className="flex items-center justify-center py-3 bg-white/5 border border-white/10 rounded-xl hover:bg-blue-500/10 hover:border-blue-500/20 transition-all disabled:opacity-50 group"
-                      title="Twitter"
-                    >
-                      <Twitter size={16} className="text-white/40 group-hover:text-blue-400 transition-colors" />
                     </motion.button>
                     <motion.button 
                       whileHover={{ scale: 1.05, y: -2 }}
@@ -1505,7 +1580,7 @@ export default function App() {
               initial={{ scale: 0.9, opacity: 0, y: 20 }}
               animate={{ scale: 1, opacity: 1, y: 0 }}
               exit={{ scale: 0.9, opacity: 0, y: 20 }}
-              className="relative w-full max-w-lg bg-[#111] border border-white/10 rounded-[40px] p-10 overflow-hidden"
+              className="relative w-full max-w-lg bg-[#111] border border-white/10 rounded-[40px] p-10 overflow-y-auto max-h-[90vh]"
             >
               <button 
                 onClick={() => setShowReferralDashboard(false)}
@@ -1528,9 +1603,14 @@ export default function App() {
                     </div>
                     <button 
                       onClick={copyReferralCode}
-                      className="px-6 bg-white text-black rounded-2xl hover:bg-purple-500 hover:text-white transition-all"
+                      className={`px-6 rounded-2xl transition-all flex items-center gap-2 ${
+                        isCopied 
+                          ? "bg-green-500 text-white" 
+                          : "bg-white text-black hover:bg-purple-500 hover:text-white"
+                      }`}
                     >
-                      <Copy size={20} />
+                      {isCopied ? <CheckCircle2 size={20} /> : <Copy size={20} />}
+                      {isCopied && <span className="text-[10px] font-black uppercase tracking-widest">Copiado</span>}
                     </button>
                   </div>
                 </div>
@@ -1556,6 +1636,130 @@ export default function App() {
                   <MessageCircle size={18} />
                   Compartir en WhatsApp
                 </button>
+
+                {/* Order History Section */}
+                <div className="pt-8 border-t border-white/10 space-y-6">
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-xl font-black tracking-tighter">HISTORIAL DE <span className="text-purple-500">PEDIDOS.</span></h3>
+                    <div className="px-3 py-1 bg-white/5 border border-white/10 rounded-full text-[8px] font-bold uppercase tracking-widest text-white/40">
+                      {orderHistory.length} pedidos
+                    </div>
+                  </div>
+
+                  {orderHistory.length > 0 ? (
+                    <div className="space-y-4">
+                      {orderHistory.map((order) => (
+                        <div key={order.id} className="p-6 bg-white/5 border border-white/10 rounded-3xl space-y-3">
+                          <div className="flex justify-between items-start">
+                            <div className="space-y-1">
+                              <div className="text-[10px] font-black uppercase tracking-widest text-purple-400">
+                                {order.date?.toDate ? order.date.toDate().toLocaleDateString('es-EC', { day: '2-digit', month: 'short', year: 'numeric' }) : 'Reciente'}
+                              </div>
+                              <div className="text-sm font-bold">{order.items}</div>
+                            </div>
+                            <div className="text-lg font-black tracking-tighter">${order.total.toFixed(2)}</div>
+                          </div>
+                          <div className="flex items-center gap-4 text-[9px] font-bold uppercase tracking-widest text-white/30">
+                            <span>{order.size}</span>
+                            <span>•</span>
+                            <span>{order.quantity} uds</span>
+                            <span>•</span>
+                            <span className="text-green-500/60">Completado</span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="py-12 text-center bg-white/5 border border-white/10 border-dashed rounded-3xl">
+                      <ShoppingBag size={32} className="mx-auto mb-4 text-white/10" />
+                      <p className="text-[10px] font-bold uppercase tracking-widest text-white/20">Aún no tienes pedidos</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Review Order Modal */}
+      <AnimatePresence>
+        {showReviewModal && (
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[200] flex items-center justify-center p-6 bg-black/80 backdrop-blur-xl"
+          >
+            <motion.div 
+              initial={{ scale: 0.9, opacity: 0, y: 20 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.9, opacity: 0, y: 20 }}
+              className="relative w-full max-w-lg bg-[#111] border border-white/10 rounded-[40px] p-10 max-h-[90vh] overflow-y-auto"
+            >
+              <button 
+                onClick={() => setShowReviewModal(false)}
+                className="absolute top-8 right-8 text-white/40 hover:text-white transition-colors"
+              >
+                <X size={24} />
+              </button>
+
+              <div className="space-y-8">
+                <div className="flex items-center gap-4 mb-2">
+                  <span className="flex items-center justify-center w-8 h-8 rounded-full bg-purple-600 text-[10px] font-black">04</span>
+                  <h2 className="text-3xl font-black tracking-tighter text-white">REVISA TU <span className="text-purple-500">PEDIDO.</span></h2>
+                </div>
+                <p className="text-xs font-medium text-white/40 italic">Confirma los detalles antes de ir a WhatsApp.</p>
+
+                <div className="space-y-6 bg-white/5 border border-white/10 rounded-3xl p-6">
+                  <div className="space-y-4">
+                    <div className="flex justify-between items-start">
+                      <div className="text-[10px] font-black uppercase tracking-widest text-white/40">Frutas</div>
+                      <div className="text-right text-sm font-bold">{selectedFruits.map(f => `${f.emoji} ${f.name}`).join(" + ")}</div>
+                    </div>
+                    <div className="flex justify-between items-start">
+                      <div className="text-[10px] font-black uppercase tracking-widest text-white/40">Aderezos</div>
+                      <div className="text-right text-sm font-bold">{selectedToppings.length > 0 ? selectedToppings.map(t => t.name).join(", ") : "Sin aderezos"}</div>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <div className="text-[10px] font-black uppercase tracking-widest text-white/40">Tamaño</div>
+                      <div className="text-sm font-bold">{sizes[selectedSize].label} ({sizes[selectedSize].weight}g)</div>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <div className="text-[10px] font-black uppercase tracking-widest text-white/40">Cantidad</div>
+                      <div className="text-sm font-bold">{quantity} unidades</div>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <div className="text-[10px] font-black uppercase tracking-widest text-white/40">Peso Total</div>
+                      <div className="text-sm font-bold text-purple-400">{totalWeight}g</div>
+                    </div>
+                  </div>
+
+                  <div className="pt-6 border-t border-white/10 flex justify-between items-end">
+                    <div className="text-[10px] font-black uppercase tracking-widest text-white/40 mb-1">Total a pagar</div>
+                    <div className="text-3xl font-black tracking-tighter text-white">${totalPrice}</div>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <motion.button 
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
+                    onClick={() => setShowReviewModal(false)}
+                    className="py-5 bg-white/5 border border-white/10 rounded-full text-[10px] font-black uppercase tracking-widest hover:bg-white/10 transition-all"
+                  >
+                    Editar Pedido
+                  </motion.button>
+                  <motion.button 
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
+                    onClick={handleFinalConfirmation}
+                    className="py-5 bg-purple-600 hover:bg-purple-500 rounded-full text-[10px] font-black uppercase tracking-widest transition-all shadow-xl shadow-purple-600/20 flex items-center justify-center gap-2"
+                  >
+                    <MessageCircle size={14} />
+                    Confirmar
+                  </motion.button>
+                </div>
               </div>
             </motion.div>
           </motion.div>
@@ -1606,12 +1810,10 @@ export default function App() {
                   onClick={executeShare}
                   className={`w-full py-5 rounded-full text-xs font-black uppercase tracking-widest transition-all shadow-xl flex items-center justify-center gap-3 ${
                     sharePlatform === 'whatsapp' ? 'bg-green-600 hover:bg-green-500 shadow-green-600/20' :
-                    sharePlatform === 'twitter' ? 'bg-blue-600 hover:bg-blue-500 shadow-blue-600/20' :
                     'bg-pink-600 hover:bg-pink-500 shadow-pink-600/20'
                   }`}
                 >
                   {sharePlatform === 'whatsapp' && <MessageCircle size={18} />}
-                  {sharePlatform === 'twitter' && <Twitter size={18} />}
                   {sharePlatform === 'instagram' && <Instagram size={18} />}
                   Compartir ahora
                 </motion.button>
