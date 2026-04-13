@@ -56,7 +56,9 @@ import {
   type Testimonial
 } from "./constants";
 import { fruitArt, toppingArt } from "./lib/canvasArt";
-import AdminPanel from "./AdminPanel";
+import { lazy, Suspense } from "react";
+
+const AdminPanel = lazy(() => import("./AdminPanel"));
 
 // ─── TYPES ───
 interface UserProfile {
@@ -196,9 +198,13 @@ export default function App() {
   // Routing
   const isPathAdmin = window.location.pathname.includes("/admin");
 
-  if (isPathAdmin) {
-    return <AdminPanel />;
-  }
+  const [isAppLoading, setIsAppLoading] = useState(true);
+
+  useEffect(() => {
+    // Give a small delay to ensure smooth transition
+    const timer = setTimeout(() => setIsAppLoading(false), 800);
+    return () => clearTimeout(timer);
+  }, []);
 
   // Initialize Local Profile and Data
   useEffect(() => {
@@ -226,9 +232,11 @@ export default function App() {
       localStorage.setItem("tyango_profile", JSON.stringify(newProfile));
       setUserProfile(newProfile);
 
-      // Register code in Firestore for global validation
+      // Defer registration to avoid blocking initial load
       const registerCode = async () => {
         try {
+          // Small delay to let the app breathe
+          await new Promise(r => setTimeout(r, 2000));
           await setDoc(doc(db, "referral_codes", newProfile.referralCode), {
             createdAt: serverTimestamp(),
             userId: newProfile.userId,
@@ -794,6 +802,39 @@ export default function App() {
   const discountAmount = discountPct > 0 ? basePrice * (discountPct / 100) : 0;
   const totalPrice = (basePrice - discountAmount).toFixed(2);
   const totalWeight = dynamicSizes[selectedSize].weight * quantity;
+
+  if (isPathAdmin) {
+    return (
+      <Suspense fallback={
+        <div className="min-h-screen bg-[#0a0a0a] flex items-center justify-center">
+          <RefreshCw className="text-purple-500 animate-spin" size={32} />
+        </div>
+      }>
+        <AdminPanel />
+      </Suspense>
+    );
+  }
+
+  if (isAppLoading) {
+    return (
+      <div className="fixed inset-0 z-[500] bg-[#0a0a0a] flex flex-col items-center justify-center gap-6">
+        <motion.div
+          initial={{ scale: 0.8, opacity: 0 }}
+          animate={{ scale: 1, opacity: 1 }}
+          className="relative"
+        >
+          <div className="w-24 h-24 border-4 border-purple-600/20 border-t-purple-600 rounded-full animate-spin" />
+          <div className="absolute inset-0 flex items-center justify-center">
+            <div className="text-2xl font-black tracking-tighter text-white">T</div>
+          </div>
+        </motion.div>
+        <div className="text-center space-y-2">
+          <div className="text-xs font-black uppercase tracking-[0.4em] text-white/40">Cocinando frescura</div>
+          <div className="text-[10px] font-bold text-purple-500/60 uppercase tracking-widest">TYANGO | QUITO</div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-[#0a0a0a] text-white font-sans selection:bg-purple-500 selection:text-white">
