@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { db, auth, googleProvider } from "./lib/firebase";
 import { signInWithPopup, onAuthStateChanged, User, signOut } from "firebase/auth";
-import { collection, onSnapshot, query, orderBy, limit, doc, updateDoc, setDoc, getDoc } from "firebase/firestore";
+import { collection, onSnapshot, query, orderBy, limit, doc, updateDoc, setDoc, getDoc, deleteDoc } from "firebase/firestore";
 import { motion, AnimatePresence } from "motion/react";
 import { 
   Package, 
@@ -17,7 +17,9 @@ import {
   MessageSquare,
   ChevronRight,
   RefreshCw,
-  Lock
+  Lock,
+  Trash2,
+  CheckCircle2
 } from "lucide-react";
 
 const ADMIN_EMAIL = "sebastianemanuel967@gmail.com";
@@ -68,6 +70,8 @@ export default function AdminPanel() {
     premium: false
   });
   const [activeTab, setActiveTab] = useState<"orders" | "reviews" | "referrals" | "settings">("orders");
+  const [showToast, setShowToast] = useState(false);
+  const [toastMsg, setToastMsg] = useState("");
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (u) => {
@@ -153,7 +157,45 @@ export default function AdminPanel() {
   };
 
   const updateOrderStatus = async (orderId: string, status: string) => {
-    await updateDoc(doc(db, "orders", orderId), { status });
+    try {
+      await updateDoc(doc(db, "orders", orderId), { status });
+      setToastMsg(`Pedido ${status === 'completed' ? 'completado' : 'cancelado'} ✓`);
+      setShowToast(true);
+      setTimeout(() => setShowToast(false), 3000);
+    } catch (error) {
+      console.error("Error updating order:", error);
+      setToastMsg("Error al actualizar pedido");
+      setShowToast(true);
+      setTimeout(() => setShowToast(false), 3000);
+    }
+  };
+
+  const deleteOrder = async (orderId: string) => {
+    try {
+      await deleteDoc(doc(db, "orders", orderId));
+      setToastMsg("Pedido eliminado ✓");
+      setShowToast(true);
+      setTimeout(() => setShowToast(false), 3000);
+    } catch (error) {
+      console.error("Error deleting order:", error);
+      setToastMsg("Error al eliminar pedido");
+      setShowToast(true);
+      setTimeout(() => setShowToast(false), 3000);
+    }
+  };
+
+  const deleteReview = async (reviewId: string) => {
+    try {
+      await deleteDoc(doc(db, "reviews", reviewId));
+      setToastMsg("Reseña eliminada ✓");
+      setShowToast(true);
+      setTimeout(() => setShowToast(false), 3000);
+    } catch (error) {
+      console.error("Error deleting review:", error);
+      setToastMsg("Error al eliminar reseña");
+      setShowToast(true);
+      setTimeout(() => setShowToast(false), 3000);
+    }
   };
 
   if (loading) {
@@ -247,13 +289,13 @@ export default function AdminPanel() {
             <div className="p-6 bg-[#111] border border-white/10 rounded-[32px] space-y-2">
               <div className="text-white/40 text-[10px] font-black uppercase tracking-widest">Ventas Totales</div>
               <div className="text-3xl font-black tracking-tighter text-amber-500">
-                ${orders.reduce((acc, curr) => acc + curr.total, 0).toFixed(2)}
+                ${orders.filter(o => o.status === 'completed').reduce((acc, curr) => acc + curr.total, 0).toFixed(2)}
               </div>
             </div>
             <div className="p-6 bg-[#111] border border-white/10 rounded-[32px] space-y-2">
               <div className="text-white/40 text-[10px] font-black uppercase tracking-widest">Pedidos Hoy</div>
               <div className="text-3xl font-black tracking-tighter text-purple-500">
-                {orders.filter(o => new Date(o.date).toDateString() === new Date().toDateString()).length}
+                {orders.filter(o => o.status !== 'cancelled' && new Date(o.date).toDateString() === new Date().toDateString()).length}
               </div>
             </div>
             <div className="p-6 bg-[#111] border border-white/10 rounded-[32px] space-y-2">
@@ -299,15 +341,24 @@ export default function AdminPanel() {
                         <div className="flex gap-2">
                           <button 
                             onClick={() => updateOrderStatus(order.id, "completed")}
+                            title="Completar"
                             className="p-3 bg-green-500/10 hover:bg-green-500 text-green-500 hover:text-white border border-green-500/20 rounded-2xl transition-all"
                           >
                             <CheckCircle size={20} />
                           </button>
                           <button 
                             onClick={() => updateOrderStatus(order.id, "cancelled")}
-                            className="p-3 bg-red-500/10 hover:bg-red-500 text-red-500 hover:text-white border border-red-500/20 rounded-2xl transition-all"
+                            title="Cancelar"
+                            className="p-3 bg-amber-500/10 hover:bg-amber-500 text-amber-500 hover:text-white border border-amber-500/20 rounded-2xl transition-all"
                           >
                             <XCircle size={20} />
+                          </button>
+                          <button 
+                            onClick={() => deleteOrder(order.id)}
+                            title="Eliminar"
+                            className="p-3 bg-red-500/10 hover:bg-red-500 text-red-500 hover:text-white border border-red-500/20 rounded-2xl transition-all"
+                          >
+                            <Trash2 size={20} />
                           </button>
                         </div>
                       </div>
@@ -336,10 +387,18 @@ export default function AdminPanel() {
                           <div className="font-bold">{rev.name}</div>
                           <div className="text-[10px] text-white/40">{new Date(rev.date).toLocaleDateString()}</div>
                         </div>
-                        <div className="flex gap-0.5">
-                          {[...Array(5)].map((_, i) => (
-                            <Star key={i} size={12} fill={i < rev.rating ? "currentColor" : "none"} className={i < rev.rating ? "text-amber-400" : "text-white/10"} />
-                          ))}
+                        <div className="flex items-center gap-2">
+                          <div className="flex gap-0.5">
+                            {[...Array(5)].map((_, i) => (
+                              <Star key={i} size={12} fill={i < rev.rating ? "currentColor" : "none"} className={i < rev.rating ? "text-amber-400" : "text-white/10"} />
+                            ))}
+                          </div>
+                          <button 
+                            onClick={() => deleteReview(rev.id)}
+                            className="p-2 text-white/20 hover:text-red-500 transition-colors"
+                          >
+                            <Trash2 size={16} />
+                          </button>
                         </div>
                       </div>
                       <p className="text-sm text-white/60 italic">"{rev.text}"</p>
@@ -433,6 +492,19 @@ export default function AdminPanel() {
           </AnimatePresence>
         </div>
       </div>
+      <AnimatePresence>
+        {showToast && (
+          <motion.div 
+            initial={{ opacity: 0, y: 50, x: "-50%" }}
+            animate={{ opacity: 1, y: 0, x: "-50%" }}
+            exit={{ opacity: 0, y: 50, x: "-50%" }}
+            className="fixed bottom-12 left-1/2 z-[100] px-8 py-4 bg-white text-black rounded-full shadow-2xl flex items-center gap-3"
+          >
+            <CheckCircle2 className="text-green-600" size={18} />
+            <span className="text-xs font-black uppercase tracking-widest">{toastMsg}</span>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
