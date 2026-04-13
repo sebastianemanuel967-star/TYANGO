@@ -837,17 +837,17 @@ export default function App() {
       </nav>
 
       {/* Live Order Ticker */}
-      <div className="fixed top-[88px] left-0 right-0 z-40 flex justify-center pointer-events-none">
+      <div className="fixed top-[68px] sm:top-[88px] left-0 right-0 z-40 flex justify-center pointer-events-none">
         <AnimatePresence mode="wait">
           <motion.div
             key={liveOrder}
             initial={{ opacity: 0, y: -10 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 10 }}
-            className="bg-white/5 backdrop-blur-md border border-white/10 px-6 py-2 rounded-full flex items-center gap-3 shadow-2xl"
+            className="bg-white/5 backdrop-blur-md border border-white/10 px-6 py-2 rounded-full flex items-center gap-3 shadow-2xl max-w-[90vw] overflow-hidden"
           >
             <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
-            <span className="text-[10px] font-bold uppercase tracking-widest text-white/60">
+            <span className="text-[10px] font-bold uppercase tracking-widest text-white/60 truncate block max-w-[280px] sm:max-w-none">
               {liveOrder}
             </span>
           </motion.div>
@@ -855,7 +855,7 @@ export default function App() {
       </div>
 
       {/* Hero Section */}
-      <section className="relative min-h-screen flex flex-col items-center justify-center px-6 pt-20 text-center z-10">
+      <section className="relative min-h-screen flex flex-col items-center justify-center px-4 pt-20 text-center z-10">
         <motion.div 
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -869,7 +869,7 @@ export default function App() {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.1 }}
-          className="text-5xl sm:text-7xl md:text-9xl font-black tracking-tighter leading-[0.85] mb-8"
+          className="text-[2.5rem] leading-[0.9] sm:text-6xl md:text-9xl font-black tracking-tighter mb-8"
         >
           FRUTA.<br />
           <span className="text-purple-500">TU ESTILO.</span>
@@ -879,7 +879,7 @@ export default function App() {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.2 }}
-          className="max-w-xl text-base md:text-lg text-white/50 font-medium leading-relaxed mb-12"
+          className="max-w-sm md:max-w-xl text-sm md:text-lg text-white/50 font-medium leading-relaxed mb-12"
         >
           Personaliza tu snack de fruta fresca con aderezos picantes y recibe tu TYANGO sellado al vacío. Frescura total, sabor explosivo.
         </motion.p>
@@ -888,13 +888,13 @@ export default function App() {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.3 }}
-          className="flex flex-col sm:flex-row gap-4"
+          className="flex flex-col sm:flex-row gap-4 w-full sm:w-auto px-6 sm:px-0"
         >
           <motion.a 
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
             href="#configurar" 
-            className="px-10 py-5 bg-white text-black font-black uppercase tracking-widest rounded-full hover:bg-purple-500 hover:text-white transition-all transform"
+            className="w-full sm:w-auto px-10 py-5 bg-white text-black font-black uppercase tracking-widest rounded-full hover:bg-purple-500 hover:text-white transition-all transform text-center"
           >
             Empezar Configuración
           </motion.a>
@@ -902,7 +902,7 @@ export default function App() {
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
             href="#como-funciona" 
-            className="px-10 py-5 bg-white/5 border border-white/10 font-black uppercase tracking-widest rounded-full hover:bg-white/10 transition-all"
+            className="w-full sm:w-auto px-10 py-5 bg-white/5 border border-white/10 font-black uppercase tracking-widest rounded-full hover:bg-white/10 transition-all text-center"
           >
             Ver Proceso
           </motion.a>
@@ -962,61 +962,65 @@ export default function App() {
           {/* Mini Card */}
           <motion.div 
             whileHover={{ y: -10 }}
-            className="group p-6 sm:p-10 bg-[#111] border border-white/10 rounded-[48px] flex flex-col items-center text-center space-y-6 hover:border-blue-500/50 transition-all"
+            className="group p-5 sm:p-8 bg-[#111] border border-white/10 rounded-[48px] flex flex-row sm:flex-col items-center gap-4 sm:gap-0 hover:border-blue-500/50 transition-all"
           >
-            <div className="w-20 h-20 bg-blue-500/10 rounded-3xl flex items-center justify-center text-blue-500 group-hover:scale-110 transition-transform">
-              <Package size={40} />
+            <div className="w-16 h-16 sm:w-20 sm:h-20 bg-blue-500/10 rounded-2xl sm:rounded-3xl flex items-center justify-center text-blue-500 group-hover:scale-110 transition-transform shrink-0">
+              <Package size={32} className="w-8 h-8 sm:w-10 sm:h-10" />
             </div>
-            <div className="space-y-2">
-              <h3 className="text-3xl font-black tracking-tighter">MINI</h3>
-              <div className="px-4 py-1 bg-blue-500/10 border border-blue-500/20 rounded-full text-[10px] font-black uppercase tracking-widest text-blue-500">
-                60 Gramos
+            <div className="flex flex-col sm:flex-col items-center space-y-4 sm:space-y-6 flex-1">
+              <div className="space-y-2 text-center">
+                <h3 className="text-3xl font-black tracking-tighter">MINI</h3>
+                <div className="px-4 py-1 bg-blue-500/10 border border-blue-500/20 rounded-full text-[10px] font-black uppercase tracking-widest text-blue-500">
+                  60 Gramos
+                </div>
               </div>
+              <p className="text-sm text-white/40 font-medium text-center hidden sm:block">El snack ideal para un antojo rápido y ligero. Frescura concentrada.</p>
+              <div className="text-2xl sm:text-4xl font-black tracking-tighter text-white">$1.50</div>
+              <motion.a 
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                href="#configurar"
+                onClick={() => setSelectedSize("mini")}
+                className="w-full py-3 sm:py-5 bg-blue-500 text-white font-black uppercase tracking-widest rounded-2xl sm:rounded-3xl shadow-xl shadow-blue-500/20 text-center text-[10px] sm:text-xs"
+              >
+                Seleccionar Mini
+              </motion.a>
             </div>
-            <p className="text-sm text-white/40 font-medium">El snack ideal para un antojo rápido y ligero. Frescura concentrada.</p>
-            <div className="text-4xl font-black tracking-tighter text-white">$1.50</div>
-            <motion.a 
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-              href="#configurar"
-              onClick={() => setSelectedSize("mini")}
-              className="w-full py-5 bg-blue-500 text-white font-black uppercase tracking-widest rounded-3xl shadow-xl shadow-blue-500/20 text-center"
-            >
-              Seleccionar Mini
-            </motion.a>
           </motion.div>
 
           {/* Clásico Card */}
           <motion.div 
             whileHover={{ y: -10 }}
-            className="group p-6 sm:p-10 bg-[#111] border border-white/10 rounded-[48px] flex flex-col items-center text-center space-y-6 hover:border-purple-500/50 transition-all"
+            className="group p-5 sm:p-8 bg-[#111] border border-white/10 rounded-[48px] flex flex-row sm:flex-col items-center gap-4 sm:gap-0 hover:border-purple-500/50 transition-all"
           >
-            <div className="w-20 h-20 bg-purple-500/10 rounded-3xl flex items-center justify-center text-purple-500 group-hover:scale-110 transition-transform">
-              <Package size={40} />
+            <div className="w-16 h-16 sm:w-20 sm:h-20 bg-purple-500/10 rounded-2xl sm:rounded-3xl flex items-center justify-center text-purple-500 group-hover:scale-110 transition-transform shrink-0">
+              <Package size={32} className="w-8 h-8 sm:w-10 sm:h-10" />
             </div>
-            <div className="space-y-2">
-              <h3 className="text-3xl font-black tracking-tighter">CLÁSICO</h3>
-              <div className="px-4 py-1 bg-purple-500/10 border border-purple-500/20 rounded-full text-[10px] font-black uppercase tracking-widest text-purple-500">
-                100 Gramos
+            <div className="flex flex-col sm:flex-col items-center space-y-4 sm:space-y-6 flex-1">
+              <div className="space-y-2 text-center">
+                <h3 className="text-3xl font-black tracking-tighter">CLÁSICO</h3>
+                <div className="px-4 py-1 bg-purple-500/10 border border-purple-500/20 rounded-full text-[10px] font-black uppercase tracking-widest text-purple-500">
+                  100 Gramos
+                </div>
               </div>
+              <p className="text-sm text-white/40 font-medium text-center hidden sm:block">Nuestra porción estrella. La cantidad perfecta para disfrutar al máximo.</p>
+              <div className="text-2xl sm:text-4xl font-black tracking-tighter text-white">$2.50</div>
+              <motion.a 
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                href="#configurar"
+                onClick={() => setSelectedSize("clasico")}
+                className="w-full py-3 sm:py-5 bg-purple-600 text-white font-black uppercase tracking-widest rounded-2xl sm:rounded-3xl shadow-xl shadow-purple-600/20 text-center text-[10px] sm:text-xs"
+              >
+                Seleccionar Clásico
+              </motion.a>
             </div>
-            <p className="text-sm text-white/40 font-medium">Nuestra porción estrella. La cantidad perfecta para disfrutar al máximo.</p>
-            <div className="text-4xl font-black tracking-tighter text-white">$2.50</div>
-            <motion.a 
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-              href="#configurar"
-              onClick={() => setSelectedSize("clasico")}
-              className="w-full py-5 bg-purple-600 text-white font-black uppercase tracking-widest rounded-3xl shadow-xl shadow-purple-600/20 text-center"
-            >
-              Seleccionar Clásico
-            </motion.a>
           </motion.div>
         </div>
       </section>
 
       {/* Configurator */}
-      <section id="configurar" className="py-32 px-6 max-w-7xl mx-auto z-10 relative">
+      <section id="configurar" className="py-32 px-6 pb-20 lg:pb-32 max-w-7xl mx-auto z-10 relative">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-16">
           {/* Left: Controls */}
           <div className="lg:col-span-7 space-y-12">
@@ -1027,19 +1031,19 @@ export default function App() {
 
             {/* Step 1: Fruit */}
             <div className="space-y-8">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div className="flex items-center gap-4">
                   <span className="flex items-center justify-center w-8 h-8 rounded-full bg-purple-600 text-[10px] font-black">01</span>
                   <h3 className="text-sm font-black uppercase tracking-widest">Elige tu Fruta</h3>
                 </div>
                 
                 {/* Mode Toggle */}
-                <div className="flex p-1.5 bg-white/5 border border-white/10 rounded-2xl w-fit gap-2">
+                <div className="flex p-1.5 bg-white/5 border border-white/10 rounded-2xl w-full sm:w-fit gap-2">
                   <motion.button 
                     whileHover={{ scale: 1.05 }}
                     whileTap={{ scale: 0.95 }}
                     onClick={() => handleModeChange('individual')}
-                    className={`px-6 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all border ${
+                    className={`px-4 py-2 sm:px-6 sm:py-2.5 flex-1 sm:flex-1 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all border ${
                       selectionMode === 'individual' 
                         ? "bg-purple-600 border-purple-400 text-white shadow-lg shadow-purple-600/40" 
                         : "bg-purple-600/10 border-purple-500/20 text-purple-300/60 hover:text-purple-200 hover:bg-purple-600/20"
@@ -1051,7 +1055,7 @@ export default function App() {
                     whileHover={{ scale: 1.05 }}
                     whileTap={{ scale: 0.95 }}
                     onClick={() => handleModeChange('mix')}
-                    className={`px-6 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all border ${
+                    className={`px-4 py-2 sm:px-6 sm:py-2.5 flex-1 sm:flex-1 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all border ${
                       selectionMode === 'mix' 
                         ? "bg-amber-500 border-amber-300 text-black shadow-lg shadow-amber-500/40" 
                         : "bg-amber-500/10 border-amber-500/20 text-amber-300/60 hover:text-amber-200 hover:bg-amber-500/20"
@@ -1062,7 +1066,7 @@ export default function App() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              <div className="grid grid-cols-3 sm:grid-cols-4 gap-3">
                 {fruits.map((fruit) => {
                   const isSelected = selectedFruits.some(f => f.id === fruit.id);
                   return (
@@ -1071,14 +1075,14 @@ export default function App() {
                       whileHover={{ scale: 1.02 }}
                       whileTap={{ scale: 0.98 }}
                       onClick={() => toggleFruit(fruit)}
-                      className={`group relative p-4 rounded-3xl border transition-all text-left ${
+                      className={`group relative p-3 sm:p-4 rounded-3xl border transition-all text-left ${
                         isSelected 
                           ? "bg-purple-600 border-purple-500 shadow-xl shadow-purple-600/20" 
                           : "bg-white/5 border-white/5 hover:border-white/20"
                       }`}
                     >
-                      <div className="text-4xl mb-3 h-12 flex items-center">{fruit.emoji}</div>
-                      <div className="text-xs font-bold uppercase tracking-wider">{fruit.name}</div>
+                      <div className="text-3xl sm:text-4xl mb-3 h-10 sm:h-12 flex items-center">{fruit.emoji}</div>
+                      <div className="text-[10px] sm:text-xs font-bold uppercase tracking-wider">{fruit.name}</div>
                       {isSelected && (
                         <motion.div 
                           initial={{ scale: 0, rotate: -45 }}
@@ -1831,7 +1835,7 @@ export default function App() {
               initial={{ scale: 0.9, opacity: 0, y: 20 }}
               animate={{ scale: 1, opacity: 1, y: 0 }}
               exit={{ scale: 0.9, opacity: 0, y: 20 }}
-              className="relative w-full max-w-lg bg-[#111] border border-white/10 rounded-[40px] p-8 md:p-12"
+              className="relative w-full max-w-lg bg-[#111] border border-white/10 rounded-[40px] p-6 md:p-10"
             >
               <div className="space-y-8">
                 <div className="flex items-center gap-4">
@@ -1847,6 +1851,9 @@ export default function App() {
                       value={userPhone}
                       onChange={(e) => setUserPhone(e.target.value)}
                       placeholder="Ej: 0994124996"
+                      inputMode="numeric"
+                      autoComplete="tel"
+                      style={{ fontSize: '16px' }}
                       className="w-full bg-black/40 border border-white/10 rounded-2xl px-6 py-4 text-sm font-bold focus:outline-none focus:border-amber-500 transition-colors text-white"
                     />
                   </div>
@@ -1858,7 +1865,7 @@ export default function App() {
                   <div className="flex items-center justify-between">
                     <div className="text-[10px] font-black uppercase tracking-widest text-white/40">Número de Cuenta</div>
                     <div className="flex items-center gap-3">
-                      <div className="text-sm font-bold text-white">2213524970</div>
+                      <div className="text-xl md:text-2xl font-black text-amber-400">2213524970</div>
                       <button 
                         onClick={() => {
                           navigator.clipboard.writeText("2213524970");
@@ -2053,6 +2060,28 @@ export default function App() {
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* Mobile Checkout Bar */}
+      <div className="lg:hidden fixed bottom-0 left-0 right-0 z-[80] bg-[#111]/95 backdrop-blur-xl border-t border-white/10 px-4 py-3 flex justify-between items-center gap-3">
+        <div className="flex flex-col">
+          <span className="text-xl font-black">
+            ${(dynamicSizes[selectedSize].price * quantity * (1 - discountPct / 100)).toFixed(2)}
+          </span>
+          <span className="text-[9px] text-white/40 uppercase tracking-widest font-bold">Total a pagar</span>
+        </div>
+        <motion.button
+          whileTap={{ scale: 0.95 }}
+          onClick={confirmOrder}
+          disabled={selectedFruits.length === 0}
+          className={`px-6 py-3 rounded-full text-[10px] font-black uppercase tracking-widest transition-all ${
+            selectedFruits.length === 0 
+              ? "bg-white/10 text-white/20" 
+              : "bg-purple-600 text-white shadow-lg shadow-purple-600/30"
+          }`}
+        >
+          Pedir Ahora
+        </motion.button>
+      </div>
     </div>
   );
 }
