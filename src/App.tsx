@@ -158,6 +158,16 @@ export default function App() {
   }, []);
 
   const requestNotificationPermission = async () => {
+    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !(window as any).MSStream;
+    const isStandalone = window.matchMedia('(display-mode: standalone)').matches || (navigator as any).standalone;
+
+    if (isIOS && !isStandalone) {
+      setToastMsg("En iPhone, primero añade la app a tu Pantalla de Inicio 📲");
+      setShowToast(true);
+      setTimeout(() => setShowToast(false), 5000);
+      return;
+    }
+
     if (!('Notification' in window)) {
       setToastMsg("Tu navegador no soporta notificaciones");
       setShowToast(true);
