@@ -19,6 +19,7 @@ import {
   Zap,
   ChevronDown,
   Gift,
+  Package,
   User as UserIcon,
   Instagram
 } from "lucide-react";
@@ -30,6 +31,8 @@ import {
   getDocs, 
   setDoc, 
   addDoc, 
+  updateDoc,
+  increment,
   onSnapshot, 
   query, 
   orderBy,
@@ -108,6 +111,7 @@ export default function App() {
   const [orderConfirmed, setOrderConfirmed] = useState<boolean>(false);
   const [referralMsg, setReferralMsg] = useState<{ text: string; type: "ok" | "err" } | null>(null);
   const [referralInput, setReferralInput] = useState<string>("");
+  const [appliedReferralCode, setAppliedReferralCode] = useState<string | null>(null);
   const [showToast, setShowToast] = useState<boolean>(false);
   const [toastMsg, setToastMsg] = useState<string>("");
   const bagCanvasRef = useRef<HTMLCanvasElement>(null);
@@ -199,7 +203,8 @@ export default function App() {
         try {
           await setDoc(doc(db, "referral_codes", newProfile.referralCode), {
             createdAt: serverTimestamp(),
-            userId: newProfile.userId
+            userId: newProfile.userId,
+            uses: 0
           });
         } catch (e) {
           console.error("Error registering referral code:", e);
@@ -416,7 +421,16 @@ export default function App() {
         const codeSnap = await getDoc(codeRef);
         
         if (codeSnap.exists()) {
+          const data = codeSnap.data();
+          const uses = data.uses || 0;
+          
+          if (uses >= 4) {
+            setReferralMsg({ text: "Este código ya alcanzó su límite de usos.", type: "err" });
+            return;
+          }
+
           setDiscountPct(15);
+          setAppliedReferralCode(raw);
           setReferralMsg({ text: `✓ Código ${raw} aplicado — 15% off`, type: "ok" });
           setIsReferralApplied(true);
           setTimeout(() => setIsReferralApplied(false), 2000);
@@ -504,6 +518,18 @@ export default function App() {
           timestamp: serverTimestamp(),
           status: "pending"
         });
+
+        // Increment referral uses if a generated code was applied
+        if (appliedReferralCode) {
+          try {
+            const codeRef = doc(db, "referral_codes", appliedReferralCode);
+            await updateDoc(codeRef, {
+              uses: increment(1)
+            });
+          } catch (err) {
+            console.error("Error incrementing referral uses:", err);
+          }
+        }
       } catch (e) {
         console.error("Error saving order to Firestore:", e);
       }
@@ -642,7 +668,7 @@ export default function App() {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.1 }}
-          className="text-5xl md:text-9xl font-black tracking-tighter leading-[0.85] mb-8"
+          className="text-5xl sm:text-7xl md:text-9xl font-black tracking-tighter leading-[0.85] mb-8"
         >
           FRUTA.<br />
           <span className="text-purple-500">TU ESTILO.</span>
@@ -723,6 +749,70 @@ export default function App() {
           ))}
         </div>
       </motion.section>
+
+      {/* Sizes Section */}
+      <section className="py-32 px-6 max-w-7xl mx-auto z-10 relative">
+        <div className="text-center mb-16">
+          <h2 className="text-4xl md:text-6xl font-black tracking-tighter mb-4">ELIGE TU <span className="text-purple-500">TAMAÑO.</span></h2>
+          <p className="text-white/40 font-medium">Dos opciones perfectas para cada antojo.</p>
+        </div>
+        
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-4xl mx-auto">
+          {/* Mini Card */}
+          <motion.div 
+            whileHover={{ y: -10 }}
+            className="group p-6 sm:p-10 bg-[#111] border border-white/10 rounded-[48px] flex flex-col items-center text-center space-y-6 hover:border-blue-500/50 transition-all"
+          >
+            <div className="w-20 h-20 bg-blue-500/10 rounded-3xl flex items-center justify-center text-blue-500 group-hover:scale-110 transition-transform">
+              <Package size={40} />
+            </div>
+            <div className="space-y-2">
+              <h3 className="text-3xl font-black tracking-tighter">MINI</h3>
+              <div className="px-4 py-1 bg-blue-500/10 border border-blue-500/20 rounded-full text-[10px] font-black uppercase tracking-widest text-blue-500">
+                60 Gramos
+              </div>
+            </div>
+            <p className="text-sm text-white/40 font-medium">El snack ideal para un antojo rápido y ligero. Frescura concentrada.</p>
+            <div className="text-4xl font-black tracking-tighter text-white">$1.50</div>
+            <motion.a 
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              href="#configurar"
+              onClick={() => setSelectedSize("mini")}
+              className="w-full py-5 bg-blue-500 text-white font-black uppercase tracking-widest rounded-3xl shadow-xl shadow-blue-500/20 text-center"
+            >
+              Seleccionar Mini
+            </motion.a>
+          </motion.div>
+
+          {/* Clásico Card */}
+          <motion.div 
+            whileHover={{ y: -10 }}
+            className="group p-6 sm:p-10 bg-[#111] border border-white/10 rounded-[48px] flex flex-col items-center text-center space-y-6 hover:border-purple-500/50 transition-all"
+          >
+            <div className="w-20 h-20 bg-purple-500/10 rounded-3xl flex items-center justify-center text-purple-500 group-hover:scale-110 transition-transform">
+              <Package size={40} />
+            </div>
+            <div className="space-y-2">
+              <h3 className="text-3xl font-black tracking-tighter">CLÁSICO</h3>
+              <div className="px-4 py-1 bg-purple-500/10 border border-purple-500/20 rounded-full text-[10px] font-black uppercase tracking-widest text-purple-500">
+                100 Gramos
+              </div>
+            </div>
+            <p className="text-sm text-white/40 font-medium">Nuestra porción estrella. La cantidad perfecta para disfrutar al máximo.</p>
+            <div className="text-4xl font-black tracking-tighter text-white">$2.50</div>
+            <motion.a 
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              href="#configurar"
+              onClick={() => setSelectedSize("clasico")}
+              className="w-full py-5 bg-purple-600 text-white font-black uppercase tracking-widest rounded-3xl shadow-xl shadow-purple-600/20 text-center"
+            >
+              Seleccionar Clásico
+            </motion.a>
+          </motion.div>
+        </div>
+      </section>
 
       {/* Configurator */}
       <section id="configurar" className="py-32 px-6 max-w-7xl mx-auto z-10 relative">

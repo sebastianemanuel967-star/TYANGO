@@ -48,11 +48,19 @@ interface ProductSettings {
   premium: boolean;
 }
 
+interface ReferralCode {
+  id: string;
+  userId: string;
+  uses: number;
+  createdAt: any;
+}
+
 export default function AdminPanel() {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [orders, setOrders] = useState<Order[]>([]);
   const [reviews, setReviews] = useState<Review[]>([]);
+  const [referralCodesList, setReferralCodesList] = useState<ReferralCode[]>([]);
   const [referralStats, setReferralStats] = useState({ totalUsers: 0, totalRewards: 0 });
   const [productSettings, setProductSettings] = useState<ProductSettings>({
     mini: true,
@@ -100,6 +108,11 @@ export default function AdminPanel() {
       });
     });
 
+    // Listen to referral codes
+    const unsubCodes = onSnapshot(collection(db, "referral_codes"), (snap) => {
+      setReferralCodesList(snap.docs.map(d => ({ id: d.id, ...d.data() } as ReferralCode)));
+    });
+
     // Listen to product settings
     const unsubSettings = onSnapshot(doc(db, "settings", "products"), (doc) => {
       if (doc.exists()) {
@@ -111,6 +124,7 @@ export default function AdminPanel() {
       unsubOrders();
       unsubReviews();
       unsubUsers();
+      unsubCodes();
       unsubSettings();
     };
   }, [user]);
@@ -204,7 +218,7 @@ export default function AdminPanel() {
 
       <div className="pt-24 pb-12 px-6 max-w-7xl mx-auto flex flex-col lg:flex-row gap-8">
         {/* Sidebar Menu */}
-        <div className="lg:w-64 space-y-2">
+        <div className="grid grid-cols-2 md:grid-cols-4 lg:flex lg:flex-col lg:w-64 gap-2">
           {[
             { id: "orders", icon: Package, label: "Pedidos" },
             { id: "reviews", icon: MessageSquare, label: "Reseñas" },
@@ -341,7 +355,7 @@ export default function AdminPanel() {
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -10 }}
-                className="space-y-4"
+                className="space-y-6"
               >
                 <h2 className="text-2xl font-black tracking-tighter">MÉTRICAS DE <span className="text-purple-500">REFERIDOS.</span></h2>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -352,6 +366,24 @@ export default function AdminPanel() {
                   <div className="p-8 bg-amber-600/10 border border-amber-500/20 rounded-[40px] text-center space-y-2">
                     <div className="text-5xl font-black tracking-tighter text-amber-500">${referralStats.totalRewards.toFixed(2)}</div>
                     <div className="text-[10px] font-black uppercase tracking-widest text-amber-400">Créditos Otorgados</div>
+                  </div>
+                </div>
+
+                <div className="space-y-4">
+                  <h3 className="text-sm font-black uppercase tracking-widest text-white/40">Códigos Generados</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    {referralCodesList.map((code) => (
+                      <div key={code.id} className="p-5 bg-[#111] border border-white/10 rounded-3xl flex items-center justify-between">
+                        <div>
+                          <div className="text-lg font-black tracking-tighter text-purple-400">{code.id}</div>
+                          <div className="text-[10px] text-white/30 font-medium">ID: {code.userId.slice(0, 8)}...</div>
+                        </div>
+                        <div className="text-right">
+                          <div className="text-xl font-black">{code.uses || 0}/4</div>
+                          <div className="text-[8px] font-black uppercase tracking-widest text-white/20">Usos</div>
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 </div>
               </motion.div>

@@ -36,9 +36,10 @@
       "type": "object",
       "properties": {
         "userId": { "type": "string", "description": "The user ID who owns this code" },
-        "createdAt": { "type": "string", "format": "date-time", "description": "When the code was registered" }
+        "createdAt": { "type": "string", "format": "date-time", "description": "When the code was registered" },
+        "uses": { "type": "number", "description": "Number of times this code has been used (max 4)" }
       },
-      "required": ["userId", "createdAt"]
+      "required": ["userId", "createdAt", "uses"]
     },
     "Order": {
       "title": "Order",

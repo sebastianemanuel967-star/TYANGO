@@ -69,9 +69,10 @@ service cloud.firestore {
     }
 
     function isValidReferralCode(data) {
-      return data.keys().hasAll(['userId', 'createdAt']) &&
+      return data.keys().hasAll(['userId', 'createdAt', 'uses']) &&
              data.userId is string && data.userId.size() < 100 &&
-             data.createdAt is timestamp;
+             data.createdAt is timestamp &&
+             data.uses is number && data.uses >= 0 && data.uses <= 4;
     }
 
     function isValidOrder(data) {
@@ -102,7 +103,12 @@ service cloud.firestore {
     match /referral_codes/{code} {
       allow read: if true;
       allow create: if isValidReferralCode(request.resource.data);
-      allow update, delete: if isAdmin();
+      allow update: if isAdmin() || (
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['uses']) &&
+        request.resource.data.uses == resource.data.uses + 1 &&
+        request.resource.data.uses <= 4
+      );
+      allow delete: if isAdmin();
     }
 
     match /orders/{orderId} {
