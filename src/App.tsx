@@ -20,6 +20,7 @@ import {
   ChevronDown,
   Gift,
   Package,
+  Bell,
   User as UserIcon,
   Instagram
 } from "lucide-react";
@@ -147,6 +148,49 @@ export default function App() {
 
   // Quantity State
   const [quantity, setQuantity] = useState<number>(1);
+  const [stockRemaining, setStockRemaining] = useState<number>(15);
+  const [notificationsEnabled, setNotificationsEnabled] = useState<boolean>(false);
+
+  useEffect(() => {
+    if ('Notification' in window) {
+      setNotificationsEnabled(Notification.permission === 'granted');
+    }
+  }, []);
+
+  const requestNotificationPermission = async () => {
+    if (!('Notification' in window)) {
+      setToastMsg("Tu navegador no soporta notificaciones");
+      setShowToast(true);
+      setTimeout(() => setShowToast(false), 3000);
+      return;
+    }
+
+    try {
+      const permission = await Notification.requestPermission();
+      if (permission === 'granted') {
+        setNotificationsEnabled(true);
+        setToastMsg("¡Notificaciones activadas! 🔔");
+        // In a real app, you would send the subscription to your server here
+      } else {
+        setToastMsg("Permiso de notificaciones denegado");
+      }
+      setShowToast(true);
+      setTimeout(() => setShowToast(false), 3000);
+    } catch (error) {
+      console.error("Error requesting notification permission:", error);
+    }
+  };
+
+  useEffect(() => {
+    // Simulate stock decreasing slightly over time for urgency
+    const interval = setInterval(() => {
+      setStockRemaining(prev => {
+        if (prev <= 3) return prev;
+        return Math.random() > 0.7 ? prev - 1 : prev;
+      });
+    }, 30000);
+    return () => clearInterval(interval);
+  }, []);
 
   // Review Modal State
   const [showReviewModal, setShowReviewModal] = useState<boolean>(false);
@@ -562,11 +606,40 @@ export default function App() {
     setShowShareModal(true);
   };
 
-  const executeShare = () => {
+  const executeShare = async () => {
     if (!sharePlatform) return;
     
+    const canvas = bagCanvasRef.current;
+    let imageFile: File | null = null;
+
+    if (canvas && navigator.share && navigator.canShare) {
+      try {
+        const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/png'));
+        if (blob) {
+          imageFile = new File([blob], 'mi-tyango.png', { type: 'image/png' });
+        }
+      } catch (e) {
+        console.error("Error creating image for share:", e);
+      }
+    }
+
+    if (imageFile && navigator.canShare({ files: [imageFile] })) {
+      try {
+        await navigator.share({
+          files: [imageFile],
+          title: 'Mi TYANGO Mix',
+          text: customShareText,
+        });
+        setShowShareModal(false);
+        return;
+      } catch (e) {
+        console.error("Web Share failed:", e);
+        // Fallback to traditional methods if user cancels or it fails
+      }
+    }
+    
     if (sharePlatform === 'whatsapp') {
-      window.location.href = `https://api.whatsapp.com/send?text=${encodeURIComponent(customShareText)}`;
+      window.open(`https://wa.me/?text=${encodeURIComponent(customShareText)}`, "_blank");
     } else if (sharePlatform === 'instagram') {
       navigator.clipboard.writeText(customShareText);
       setToastMsg("¡Copiado para Instagram! 📸");
@@ -1131,6 +1204,13 @@ export default function App() {
                     {orderConfirmed ? <CheckCircle2 size={14} /> : <MessageCircle size={14} />}
                     {orderConfirmed ? "Confirmado" : "Pedir WhatsApp"}
                   </motion.button>
+                  
+                  <div className="flex items-center justify-center gap-2 px-4 py-2 bg-amber-500/10 border border-amber-500/20 rounded-xl">
+                    <div className="w-1.5 h-1.5 bg-amber-500 rounded-full animate-ping" />
+                    <span className="text-[9px] font-black uppercase tracking-widest text-amber-500">
+                      ¡Apúrate! Solo quedan {stockRemaining} unidades disponibles hoy
+                    </span>
+                  </div>
                 </div>
               </div>
             </div>
@@ -1655,6 +1735,18 @@ export default function App() {
                 </div>
 
                 <div className="space-y-4">
+                  <div className="text-[10px] font-black uppercase tracking-widest text-white/40">Vista Previa</div>
+                  <div className="aspect-square w-32 mx-auto bg-white/5 border border-white/10 rounded-2xl overflow-hidden flex items-center justify-center p-2">
+                    <img 
+                      src={bagCanvasRef.current?.toDataURL()} 
+                      alt="Tu Tyango" 
+                      className="w-full h-full object-contain drop-shadow-lg"
+                      referrerPolicy="no-referrer"
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-4">
                   <div className="text-[10px] font-black uppercase tracking-widest text-white/40">Mensaje para {sharePlatform}</div>
                   <textarea 
                     value={customShareText}
@@ -1664,19 +1756,39 @@ export default function App() {
                   />
                 </div>
 
-                <motion.button 
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.98 }}
-                  onClick={executeShare}
-                  className={`w-full py-5 rounded-full text-xs font-black uppercase tracking-widest transition-all shadow-xl flex items-center justify-center gap-3 ${
-                    sharePlatform === 'whatsapp' ? 'bg-green-600 hover:bg-green-500 shadow-green-600/20' :
-                    'bg-pink-600 hover:bg-pink-500 shadow-pink-600/20'
-                  }`}
-                >
-                  {sharePlatform === 'whatsapp' && <MessageCircle size={18} />}
-                  {sharePlatform === 'instagram' && <Instagram size={18} />}
-                  Compartir ahora
-                </motion.button>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <motion.button 
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
+                    onClick={executeShare}
+                    className={`w-full py-5 rounded-full text-xs font-black uppercase tracking-widest transition-all shadow-xl flex items-center justify-center gap-3 ${
+                      sharePlatform === 'whatsapp' ? 'bg-green-600 hover:bg-green-500 shadow-green-600/20' :
+                      'bg-pink-600 hover:bg-pink-500 shadow-pink-600/20'
+                    }`}
+                  >
+                    {sharePlatform === 'whatsapp' && <MessageCircle size={18} />}
+                    {sharePlatform === 'instagram' && <Instagram size={18} />}
+                    Compartir ahora
+                  </motion.button>
+
+                  <motion.button 
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
+                    onClick={() => {
+                      const link = document.createElement('a');
+                      link.download = 'mi-tyango.png';
+                      link.href = bagCanvasRef.current?.toDataURL() || '';
+                      link.click();
+                      setToastMsg("¡Imagen descargada! 📥");
+                      setShowToast(true);
+                      setTimeout(() => setShowToast(false), 3000);
+                    }}
+                    className="w-full py-5 bg-white/5 border border-white/10 hover:bg-white/10 rounded-full text-xs font-black uppercase tracking-widest transition-all flex items-center justify-center gap-3"
+                  >
+                    <ChevronDown size={18} className="rotate-180" />
+                    Descargar Imagen
+                  </motion.button>
+                </div>
               </div>
             </motion.div>
           </motion.div>
@@ -1741,6 +1853,22 @@ export default function App() {
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* Floating Notification Button */}
+      {!notificationsEnabled && (
+        <motion.button
+          initial={{ scale: 0, opacity: 0 }}
+          animate={{ scale: 1, opacity: 1 }}
+          whileHover={{ scale: 1.1 }}
+          whileTap={{ scale: 0.9 }}
+          onClick={requestNotificationPermission}
+          className="fixed bottom-8 left-8 z-[100] w-14 h-14 bg-purple-600 text-white rounded-full shadow-2xl shadow-purple-600/40 flex items-center justify-center border border-purple-400"
+          title="Activar Notificaciones"
+        >
+          <Bell size={24} />
+          <span className="absolute -top-1 -right-1 w-4 h-4 bg-amber-500 rounded-full animate-ping" />
+        </motion.button>
+      )}
     </div>
   );
 }

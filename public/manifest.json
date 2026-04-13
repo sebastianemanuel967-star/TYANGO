@@ -1,0 +1,23 @@
+{
+  "name": "TYANGO - Snack de Fruta",
+  "short_name": "TYANGO",
+  "description": "Personaliza tu snack de fruta fresca con aderezos picantes.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0a0a0a",
+  "theme_color": "#9333ea",
+  "icons": [
+    {
+      "src": "https://picsum.photos/seed/tyango-icon/192/192",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "https://picsum.photos/seed/tyango-icon/512/512",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
