@@ -194,7 +194,7 @@ export default function App() {
   }, []);
 
   // Routing
-  const isPathAdmin = window.location.pathname === "/admin";
+  const isPathAdmin = window.location.pathname.includes("/admin");
 
   if (isPathAdmin) {
     return <AdminPanel />;
@@ -205,8 +205,15 @@ export default function App() {
     // Initialize or load local profile
     const savedProfile = localStorage.getItem("tyango_profile");
     if (savedProfile) {
-      setUserProfile(JSON.parse(savedProfile));
-    } else {
+      try {
+        setUserProfile(JSON.parse(savedProfile));
+      } catch (e) {
+        console.error("Error parsing saved profile:", e);
+        localStorage.removeItem("tyango_profile");
+      }
+    }
+    
+    if (!userProfile && !savedProfile) {
       const newProfile: UserProfile = {
         userId: generateUserId(),
         referralCode: generateUniqueCode(),
@@ -237,7 +244,12 @@ export default function App() {
     // Load local order history
     const savedOrders = localStorage.getItem("tyango_orders");
     if (savedOrders) {
-      setOrderHistory(JSON.parse(savedOrders));
+      try {
+        setOrderHistory(JSON.parse(savedOrders));
+      } catch (e) {
+        console.error("Error parsing saved orders:", e);
+        localStorage.removeItem("tyango_orders");
+      }
     }
   }, []);
 
