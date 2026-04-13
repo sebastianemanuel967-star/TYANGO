@@ -57,13 +57,22 @@ interface ReferralCode {
   createdAt: any;
 }
 
+interface UserData {
+  userId: string;
+  displayName: string;
+  loyaltyPoints: number;
+  totalRewards: number;
+  phone?: string;
+}
+
 export default function AdminPanel() {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [orders, setOrders] = useState<Order[]>([]);
   const [reviews, setReviews] = useState<Review[]>([]);
   const [referralCodesList, setReferralCodesList] = useState<ReferralCode[]>([]);
-  const [referralStats, setReferralStats] = useState({ totalUsers: 0, totalRewards: 0 });
+  const [usersList, setUsersList] = useState<UserData[]>([]);
+  const [referralStats, setReferralStats] = useState({ totalUsers: 0, totalRewards: 0, totalPoints: 0 });
   const [productSettings, setProductSettings] = useState<ProductSettings>({
     mini: true,
     clasico: true,
@@ -103,12 +112,25 @@ export default function AdminPanel() {
     // Listen to users for referral stats
     const unsubUsers = onSnapshot(collection(db, "users"), (snap) => {
       let totalRewards = 0;
+      let totalPoints = 0;
+      const users: UserData[] = [];
       snap.docs.forEach(d => {
-        totalRewards += d.data().totalRewards || 0;
+        const data = d.data();
+        totalRewards += data.totalRewards || 0;
+        totalPoints += data.loyaltyPoints || 0;
+        users.push({
+          userId: d.id,
+          displayName: data.displayName || "Cliente Tyango",
+          loyaltyPoints: data.loyaltyPoints || 0,
+          totalRewards: data.totalRewards || 0,
+          phone: data.phone
+        });
       });
+      setUsersList(users);
       setReferralStats({
         totalUsers: snap.size,
-        totalRewards
+        totalRewards,
+        totalPoints
       });
     });
 
@@ -417,7 +439,7 @@ export default function AdminPanel() {
                 className="space-y-6"
               >
                 <h2 className="text-2xl font-black tracking-tighter">MÉTRICAS DE <span className="text-purple-500">REFERIDOS.</span></h2>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                   <div className="p-8 bg-purple-600/10 border border-purple-500/20 rounded-[40px] text-center space-y-2">
                     <div className="text-5xl font-black tracking-tighter text-purple-500">{referralStats.totalUsers}</div>
                     <div className="text-[10px] font-black uppercase tracking-widest text-purple-400">Usuarios Registrados</div>
@@ -425,6 +447,30 @@ export default function AdminPanel() {
                   <div className="p-8 bg-amber-600/10 border border-amber-500/20 rounded-[40px] text-center space-y-2">
                     <div className="text-5xl font-black tracking-tighter text-amber-500">${referralStats.totalRewards.toFixed(2)}</div>
                     <div className="text-[10px] font-black uppercase tracking-widest text-amber-400">Créditos Otorgados</div>
+                  </div>
+                  <div className="p-8 bg-purple-600/20 border border-purple-500/30 rounded-[40px] text-center space-y-2">
+                    <div className="text-5xl font-black tracking-tighter text-purple-400">{referralStats.totalPoints}</div>
+                    <div className="text-[10px] font-black uppercase tracking-widest text-purple-300">Puntos Tyango Totales</div>
+                  </div>
+                </div>
+
+                <div className="space-y-4">
+                  <h3 className="text-sm font-black uppercase tracking-widest text-white/40">Ranking de Puntos</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    {usersList.sort((a, b) => b.loyaltyPoints - a.loyaltyPoints).slice(0, 10).map((u) => (
+                      <div key={u.userId} className="p-5 bg-[#111] border border-white/10 rounded-3xl flex items-center justify-between">
+                        <div>
+                          <div className="text-sm font-bold">{u.displayName}</div>
+                          <div className="text-[10px] text-white/30 font-medium">
+                            {u.phone ? `WhatsApp: ${u.phone}` : `ID: ${u.userId.slice(0, 8)}...`}
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <div className="text-xl font-black text-purple-400">{u.loyaltyPoints}</div>
+                          <div className="text-[8px] font-black uppercase tracking-widest text-white/20">Puntos</div>
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 </div>
 

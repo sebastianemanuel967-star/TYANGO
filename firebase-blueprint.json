@@ -9,6 +9,8 @@
         "referralCode": { "type": "string", "description": "User's unique referral code" },
         "referralsCount": { "type": "number", "description": "Number of successful referrals" },
         "totalRewards": { "type": "number", "description": "Total credit earned in USD" },
+        "loyaltyPoints": { "type": "number", "description": "Accumulated Tyango Points" },
+        "phone": { "type": "string", "description": "User's WhatsApp phone number for syncing" },
         "referredFriends": { "type": "array", "items": { "type": "string" }, "description": "List of user IDs referred by this user" },
         "email": { "type": "string", "format": "email", "description": "User's email address" },
         "displayName": { "type": "string", "description": "User's display name" },

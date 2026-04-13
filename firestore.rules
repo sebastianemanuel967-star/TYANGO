@@ -56,7 +56,9 @@ service cloud.firestore {
              data.userId is string && data.userId.size() < 100 &&
              data.referralCode is string && data.referralCode.size() < 20 &&
              data.referralsCount is number && data.referralsCount >= 0 &&
-             data.totalRewards is number && data.totalRewards >= 0;
+             data.totalRewards is number && data.totalRewards >= 0 &&
+             (!('loyaltyPoints' in data) || (data.loyaltyPoints is number && data.loyaltyPoints >= 0)) &&
+             (!('phone' in data) || (data.phone is string && data.phone.size() < 20));
     }
 
     function isValidReview(data) {

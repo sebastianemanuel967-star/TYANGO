@@ -20,7 +20,7 @@ import {
   ChevronDown,
   Gift,
   Package,
-  Bell,
+  RefreshCw,
   User as UserIcon,
   Instagram
 } from "lucide-react";
@@ -63,6 +63,8 @@ interface UserProfile {
   referralCode: string;
   referralsCount: number;
   totalRewards: number;
+  loyaltyPoints: number;
+  phone?: string;
   referredFriends: string[];
   displayName?: string;
 }
@@ -113,6 +115,8 @@ export default function App() {
   const [referralMsg, setReferralMsg] = useState<{ text: string; type: "ok" | "err" } | null>(null);
   const [referralInput, setReferralInput] = useState<string>("");
   const [appliedReferralCode, setAppliedReferralCode] = useState<string | null>(null);
+  const [isLoyaltyRewardApplied, setIsLoyaltyRewardApplied] = useState(false);
+  const LOYALTY_THRESHOLD = 50;
   const [showToast, setShowToast] = useState<boolean>(false);
   const [toastMsg, setToastMsg] = useState<string>("");
   const bagCanvasRef = useRef<HTMLCanvasElement>(null);
@@ -149,47 +153,8 @@ export default function App() {
   // Quantity State
   const [quantity, setQuantity] = useState<number>(1);
   const [stockRemaining, setStockRemaining] = useState<number>(15);
-  const [notificationsEnabled, setNotificationsEnabled] = useState<boolean>(false);
-
-  useEffect(() => {
-    if ('Notification' in window) {
-      setNotificationsEnabled(Notification.permission === 'granted');
-    }
-  }, []);
-
-  const requestNotificationPermission = async () => {
-    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !(window as any).MSStream;
-    const isStandalone = window.matchMedia('(display-mode: standalone)').matches || (navigator as any).standalone;
-
-    if (isIOS && !isStandalone) {
-      setToastMsg("En iPhone, primero añade la app a tu Pantalla de Inicio 📲");
-      setShowToast(true);
-      setTimeout(() => setShowToast(false), 5000);
-      return;
-    }
-
-    if (!('Notification' in window)) {
-      setToastMsg("Tu navegador no soporta notificaciones");
-      setShowToast(true);
-      setTimeout(() => setShowToast(false), 3000);
-      return;
-    }
-
-    try {
-      const permission = await Notification.requestPermission();
-      if (permission === 'granted') {
-        setNotificationsEnabled(true);
-        setToastMsg("¡Notificaciones activadas! 🔔");
-        // In a real app, you would send the subscription to your server here
-      } else {
-        setToastMsg("Permiso de notificaciones denegado");
-      }
-      setShowToast(true);
-      setTimeout(() => setShowToast(false), 3000);
-    } catch (error) {
-      console.error("Error requesting notification permission:", error);
-    }
-  };
+  const [userPhone, setUserPhone] = useState<string>("");
+  const [isSyncing, setIsSyncing] = useState<boolean>(false);
 
   useEffect(() => {
     // Simulate stock decreasing slightly over time for urgency
@@ -246,6 +211,7 @@ export default function App() {
         referralCode: generateUniqueCode(),
         referralsCount: 0,
         totalRewards: 0,
+        loyaltyPoints: 0,
         referredFriends: [],
         displayName: "Cliente Tyango"
       };
@@ -483,6 +449,7 @@ export default function App() {
             return;
           }
 
+          setIsLoyaltyRewardApplied(false);
           setDiscountPct(15);
           setAppliedReferralCode(raw);
           setReferralMsg({ text: `✓ Código ${raw} aplicado — 15% off`, type: "ok" });
@@ -492,6 +459,7 @@ export default function App() {
         } else {
           // Fallback: if it matches pattern but not in DB yet (maybe offline or new), 
           // we still allow it to ensure "it works" for the user.
+          setIsLoyaltyRewardApplied(false);
           setDiscountPct(15);
           setReferralMsg({ text: `✓ Código ${raw} aplicado — 15% off`, type: "ok" });
           setIsReferralApplied(true);
@@ -501,6 +469,7 @@ export default function App() {
       } catch (e) {
         console.error("Error verifying code:", e);
         // Fallback on error
+        setIsLoyaltyRewardApplied(false);
         setDiscountPct(15);
         setReferralMsg({ text: `✓ Código ${raw} aplicado — 15% off`, type: "ok" });
         setIsReferralApplied(true);
@@ -511,6 +480,20 @@ export default function App() {
 
     setDiscountPct(0);
     setReferralMsg({ text: "Código no válido.", type: "err" });
+  };
+
+  const applyLoyaltyReward = () => {
+    if (!userProfile || (userProfile.loyaltyPoints || 0) < LOYALTY_THRESHOLD) {
+      setReferralMsg({ text: `Necesitas ${LOYALTY_THRESHOLD} puntos para canjear.`, type: "err" });
+      return;
+    }
+
+    setDiscountPct(50);
+    setIsLoyaltyRewardApplied(true);
+    setAppliedReferralCode(null);
+    setReferralMsg({ text: "✓ ¡Puntos canjeados! 50% de descuento aplicado.", type: "ok" });
+    setIsReferralApplied(true);
+    setTimeout(() => setIsReferralApplied(false), 2000);
   };
 
   const confirmOrder = () => {
@@ -524,6 +507,13 @@ export default function App() {
   };
 
   const finalizeWhatsAppRedirect = async () => {
+    if (!userPhone || userPhone.length < 9) {
+      setToastMsg("Por favor ingresa tu WhatsApp para tus puntos 📱");
+      setShowToast(true);
+      setTimeout(() => setShowToast(false), 3000);
+      return;
+    }
+
     // Show success animation first
     setShowOrderSuccessAnimation(true);
     
@@ -542,14 +532,54 @@ export default function App() {
       `🔢 Cantidad: ${quantity} unidades\n` +
       `⚖️ Peso Total: ${sz.weight * quantity}g\n` +
       `💜 Total: $${total}\n` +
-      `🏦 Pago: Transferencia Banco Pichincha\n\n` +
+      `🏦 Pago: Transferencia Banco Pichincha\n` +
+      `📱 WhatsApp: ${userPhone}\n\n` +
       `¡Por favor confírmame el recibo! 🙌`
     );
 
     const orderId = `order_${Date.now()}`;
+    
+    // Handle User Profile Sync by Phone
+    let currentProfile = userProfile;
+    try {
+      // 1. Try to find user by phone in Firestore
+      const usersRef = collection(db, "users");
+      const q = query(usersRef, limit(100)); // Simple scan since we don't have indexes yet
+      const querySnapshot = await getDocs(usersRef);
+      let existingUserDoc = querySnapshot.docs.find(d => d.data().phone === userPhone);
+
+      if (existingUserDoc) {
+        const cloudData = existingUserDoc.data() as UserProfile;
+        currentProfile = {
+          ...cloudData,
+          // Merge local points if they are higher (optional logic)
+          loyaltyPoints: Math.max(cloudData.loyaltyPoints || 0, userProfile?.loyaltyPoints || 0)
+        };
+      } else {
+        // Create or update current profile with phone
+        currentProfile = {
+          ...(userProfile || {
+            userId: generateUserId(),
+            referralCode: generateUniqueCode(),
+            referralsCount: 0,
+            totalRewards: 0,
+            loyaltyPoints: 0,
+            referredFriends: [],
+            displayName: "Cliente Tyango"
+          }),
+          phone: userPhone
+        };
+      }
+      
+      setUserProfile(currentProfile);
+      localStorage.setItem("tyango_profile", JSON.stringify(currentProfile));
+    } catch (err) {
+      console.error("Error syncing profile by phone:", err);
+    }
+
     const newOrder: OrderRecord = {
       id: orderId,
-      userId: userProfile?.userId || "guest",
+      userId: currentProfile?.userId || "guest",
       items: fruitNames,
       toppings: tops,
       size: sz.label,
@@ -563,8 +593,34 @@ export default function App() {
       await setDoc(doc(db, "orders", orderId), {
         ...newOrder,
         timestamp: serverTimestamp(),
-        status: "pending"
+        status: "pending",
+        phone: userPhone
       });
+
+      // Award Tyango Points (1 point per $1 spent)
+      const earnedPoints = Math.floor(newOrder.total);
+      if (currentProfile) {
+        let currentPoints = currentProfile.loyaltyPoints || 0;
+        
+        // Deduct points if reward was used
+        if (isLoyaltyRewardApplied) {
+          currentPoints -= LOYALTY_THRESHOLD;
+        }
+        
+        const updatedProfile = {
+          ...currentProfile,
+          loyaltyPoints: currentPoints + earnedPoints
+        };
+        setUserProfile(updatedProfile);
+        localStorage.setItem("tyango_profile", JSON.stringify(updatedProfile));
+        
+        // Sync to Firestore
+        try {
+          await setDoc(doc(db, "users", updatedProfile.userId), updatedProfile, { merge: true });
+        } catch (err) {
+          console.error("Error syncing points to Firestore:", err);
+        }
+      }
 
       // Increment referral uses if a generated code was applied
       if (appliedReferralCode) {
@@ -600,6 +656,49 @@ export default function App() {
       const whatsappUrl = `https://api.whatsapp.com/send?phone=593994124996&text=${msg}`;
       window.location.href = whatsappUrl;
     }, 2200);
+  };
+
+  const syncProfileByPhone = async () => {
+    if (!userPhone || userPhone.length < 9) {
+      setToastMsg("Ingresa tu número de WhatsApp 📱");
+      setShowToast(true);
+      setTimeout(() => setShowToast(false), 3000);
+      return;
+    }
+
+    setIsSyncing(true);
+    try {
+      const usersRef = collection(db, "users");
+      const querySnapshot = await getDocs(usersRef);
+      const existingUserDoc = querySnapshot.docs.find(d => d.data().phone === userPhone);
+
+      if (existingUserDoc) {
+        const cloudData = existingUserDoc.data() as UserProfile;
+        setUserProfile(cloudData);
+        localStorage.setItem("tyango_profile", JSON.stringify(cloudData));
+        setToastMsg("¡Puntos recuperados con éxito! 💜");
+      } else {
+        // Just update current profile with phone
+        if (userProfile) {
+          const updated = { ...userProfile, phone: userPhone };
+          setUserProfile(updated);
+          localStorage.setItem("tyango_profile", JSON.stringify(updated));
+          await setDoc(doc(db, "users", userProfile.userId), updated, { merge: true });
+          setToastMsg("Número vinculado a tu cuenta ✓");
+        } else {
+          setToastMsg("No encontramos puntos para este número.");
+        }
+      }
+      setShowToast(true);
+      setTimeout(() => setShowToast(false), 3000);
+    } catch (err) {
+      console.error("Sync error:", err);
+      setToastMsg("Error al sincronizar.");
+      setShowToast(true);
+      setTimeout(() => setShowToast(false), 3000);
+    } finally {
+      setIsSyncing(false);
+    }
   };
 
   const shareCombination = (platform: 'whatsapp' | 'instagram') => {
@@ -1050,6 +1149,42 @@ export default function App() {
                   {referralMsg.text}
                 </motion.p>
               )}
+
+              {/* Loyalty Reward Redemption */}
+              {userProfile && (userProfile.loyaltyPoints || 0) >= LOYALTY_THRESHOLD && !isLoyaltyRewardApplied && (
+                <motion.div 
+                  initial={{ opacity: 0, scale: 0.95 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  className="p-6 bg-purple-600/10 border border-purple-500/20 rounded-3xl flex flex-col sm:flex-row items-center justify-between gap-4"
+                >
+                  <div className="text-center sm:text-left">
+                    <div className="text-[10px] font-black uppercase tracking-widest text-purple-400 mb-1">¡Recompensa Disponible!</div>
+                    <div className="text-xs font-bold">Tienes {userProfile.loyaltyPoints} puntos. Canjea {LOYALTY_THRESHOLD} por un 50% de descuento.</div>
+                  </div>
+                  <button 
+                    onClick={applyLoyaltyReward}
+                    className="px-6 py-3 bg-purple-600 hover:bg-purple-500 text-white text-[10px] font-black uppercase tracking-widest rounded-xl transition-all shadow-lg shadow-purple-600/20"
+                  >
+                    Canjear Ahora
+                  </button>
+                </motion.div>
+              )}
+              
+              {userProfile && (userProfile.loyaltyPoints || 0) < LOYALTY_THRESHOLD && (
+                <div className="px-6 py-4 bg-white/5 border border-white/5 rounded-2xl flex items-center justify-between">
+                  <div className="text-[10px] font-black uppercase tracking-widest text-white/30">Progreso de Puntos</div>
+                  <div className="flex items-center gap-3">
+                    <div className="w-32 h-1.5 bg-white/10 rounded-full overflow-hidden">
+                      <motion.div 
+                        initial={{ width: 0 }}
+                        animate={{ width: `${Math.min(100, (userProfile.loyaltyPoints / LOYALTY_THRESHOLD) * 100)}%` }}
+                        className="h-full bg-purple-500"
+                      />
+                    </div>
+                    <span className="text-[10px] font-black text-purple-400">{userProfile.loyaltyPoints || 0}/{LOYALTY_THRESHOLD}</span>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
 
@@ -1485,7 +1620,7 @@ export default function App() {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                   <div className="p-6 bg-white/5 border border-white/10 rounded-[32px] text-center">
                     <div className="text-3xl font-black mb-1">{userProfile.referralsCount}</div>
                     <div className="text-[8px] font-bold uppercase tracking-widest text-white/30">Amigos Referidos</div>
@@ -1493,6 +1628,10 @@ export default function App() {
                   <div className="p-6 bg-white/5 border border-white/10 rounded-[32px] text-center">
                     <div className="text-3xl font-black mb-1 text-amber-400">${userProfile.totalRewards.toFixed(2)}</div>
                     <div className="text-[8px] font-bold uppercase tracking-widest text-white/30">Crédito Ganado</div>
+                  </div>
+                  <div className="p-6 bg-purple-600/20 border border-purple-500/30 rounded-[32px] text-center">
+                    <div className="text-3xl font-black mb-1 text-purple-400">{userProfile.loyaltyPoints || 0}</div>
+                    <div className="text-[8px] font-bold uppercase tracking-widest text-purple-300">Puntos Tyango</div>
                   </div>
                 </div>
 
@@ -1507,8 +1646,29 @@ export default function App() {
                   Compartir en WhatsApp
                 </button>
 
-                {/* Order History Section */}
                 <div className="pt-8 border-t border-white/10 space-y-6">
+                  <div>
+                    <h3 className="text-xl font-black tracking-tighter mb-4">RECUPERAR <span className="text-purple-500">PUNTOS.</span></h3>
+                    <div className="flex flex-col sm:flex-row gap-3">
+                      <input 
+                        type="tel"
+                        value={userPhone}
+                        onChange={(e) => setUserPhone(e.target.value)}
+                        placeholder="Tu WhatsApp"
+                        className="w-full sm:flex-1 bg-white/5 border border-white/10 rounded-2xl px-6 py-4 text-sm font-bold focus:outline-none focus:border-purple-500 transition-colors text-white"
+                      />
+                      <button 
+                        onClick={syncProfileByPhone}
+                        disabled={isSyncing}
+                        className="px-8 py-4 bg-purple-600 hover:bg-purple-500 disabled:bg-purple-900 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all flex items-center justify-center gap-2"
+                      >
+                        {isSyncing ? <RefreshCw className="animate-spin" size={16} /> : <RefreshCw size={16} />}
+                        Sincronizar
+                      </button>
+                    </div>
+                    <p className="mt-3 text-[10px] font-medium text-white/30 italic">Ingresa tu número para recuperar tus puntos si cambiaste de celular.</p>
+                  </div>
+
                   <div className="flex items-center justify-between">
                     <h3 className="text-xl font-black tracking-tighter">HISTORIAL DE <span className="text-purple-500">PEDIDOS.</span></h3>
                     <div className="px-3 py-1 bg-white/5 border border-white/10 rounded-full text-[8px] font-bold uppercase tracking-widest text-white/40">
@@ -1658,6 +1818,17 @@ export default function App() {
                 </div>
                 
                 <div className="p-6 bg-white/5 border border-white/10 rounded-3xl space-y-6">
+                  <div className="space-y-4">
+                    <div className="text-[10px] font-black uppercase tracking-widest text-white/40">Tu WhatsApp (Para tus puntos)</div>
+                    <input 
+                      type="tel"
+                      value={userPhone}
+                      onChange={(e) => setUserPhone(e.target.value)}
+                      placeholder="Ej: 0994124996"
+                      className="w-full bg-black/40 border border-white/10 rounded-2xl px-6 py-4 text-sm font-bold focus:outline-none focus:border-amber-500 transition-colors text-white"
+                    />
+                  </div>
+
                   <div className="flex items-center justify-between">
                     <div className="text-[10px] font-black uppercase tracking-widest text-white/40">Banco</div>
                     <div className="text-sm font-bold text-white">Banco Pichincha</div>
@@ -1860,22 +2031,6 @@ export default function App() {
           </motion.div>
         )}
       </AnimatePresence>
-
-      {/* Floating Notification Button */}
-      {!notificationsEnabled && (
-        <motion.button
-          initial={{ scale: 0, opacity: 0 }}
-          animate={{ scale: 1, opacity: 1 }}
-          whileHover={{ scale: 1.1 }}
-          whileTap={{ scale: 0.9 }}
-          onClick={requestNotificationPermission}
-          className="fixed bottom-8 left-8 z-[100] w-14 h-14 bg-purple-600 text-white rounded-full shadow-2xl shadow-purple-600/40 flex items-center justify-center border border-purple-400"
-          title="Activar Notificaciones"
-        >
-          <Bell size={24} />
-          <span className="absolute -top-1 -right-1 w-4 h-4 bg-amber-500 rounded-full animate-ping" />
-        </motion.button>
-      )}
     </div>
   );
 }
