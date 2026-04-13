@@ -524,84 +524,81 @@ export default function App() {
   };
 
   const finalizeWhatsAppRedirect = async () => {
-    setShowPaymentModal(false);
-    
     // Show success animation first
     setShowOrderSuccessAnimation(true);
     
+    const sz = dynamicSizes[selectedSize];
+    const base = sz.price * quantity;
+    const disc = discountPct > 0 ? base * (discountPct / 100) : 0;
+    const total = (base - disc).toFixed(2);
+    const tops = selectedToppings.length > 0 ? selectedToppings.map((t) => t.name).join(", ") : "Sin aderezos";
+    const fruitNames = selectedFruits.map(f => `${f.emoji} ${f.name}`).join(" + ");
+    
+    const msg = encodeURIComponent(
+      `¡Hola TYANGO! 🍓 He realizado el pago de mi pedido (${selectionMode.toUpperCase()}):\n\n` +
+      `🍎 Frutas: ${fruitNames}\n` +
+      `🌶️ Aderezos: ${tops}\n` +
+      `📦 Tamaño: ${sz.label} (${sz.weight}g)\n` +
+      `🔢 Cantidad: ${quantity} unidades\n` +
+      `⚖️ Peso Total: ${sz.weight * quantity}g\n` +
+      `💜 Total: $${total}\n` +
+      `🏦 Pago: Transferencia Banco Pichincha\n\n` +
+      `¡Por favor confírmame el recibo! 🙌`
+    );
+
+    const orderId = `order_${Date.now()}`;
+    const newOrder: OrderRecord = {
+      id: orderId,
+      userId: userProfile?.userId || "guest",
+      items: fruitNames,
+      toppings: tops,
+      size: sz.label,
+      quantity: quantity,
+      total: parseFloat(total),
+      date: new Date().toISOString()
+    };
+
+    // Save to Firestore for Admin (Central Registry)
+    try {
+      await setDoc(doc(db, "orders", orderId), {
+        ...newOrder,
+        timestamp: serverTimestamp(),
+        status: "pending"
+      });
+
+      // Increment referral uses if a generated code was applied
+      if (appliedReferralCode) {
+        try {
+          const codeRef = doc(db, "referral_codes", appliedReferralCode);
+          await updateDoc(codeRef, {
+            uses: increment(1)
+          });
+        } catch (err) {
+          console.error("Error incrementing referral uses:", err);
+        }
+      }
+    } catch (e) {
+      console.error("Error saving order to Firestore:", e);
+    }
+
+    // Save to local history
+    const updatedHistory = [newOrder, ...orderHistory];
+    setOrderHistory(updatedHistory);
+    localStorage.setItem("tyango_orders", JSON.stringify(updatedHistory));
+
     // Wait for animation to play before opening WhatsApp
-    setTimeout(async () => {
+    setTimeout(() => {
       setShowOrderSuccessAnimation(false);
       setOrderConfirmed(true);
-      
-      const sz = dynamicSizes[selectedSize];
-      const base = sz.price * quantity;
-      const disc = discountPct > 0 ? base * (discountPct / 100) : 0;
-      const total = (base - disc).toFixed(2);
-      const tops = selectedToppings.length > 0 ? selectedToppings.map((t) => t.name).join(", ") : "Sin aderezos";
-      const fruitNames = selectedFruits.map(f => `${f.emoji} ${f.name}`).join(" + ");
-      
-      const msg = encodeURIComponent(
-        `¡Hola TYANGO! 🍓 He realizado el pago de mi pedido (${selectionMode.toUpperCase()}):\n\n` +
-        `🍎 Frutas: ${fruitNames}\n` +
-        `🌶️ Aderezos: ${tops}\n` +
-        `📦 Tamaño: ${sz.label} (${sz.weight}g)\n` +
-        `🔢 Cantidad: ${quantity} unidades\n` +
-        `⚖️ Peso Total: ${sz.weight * quantity}g\n` +
-        `💜 Total: $${total}\n` +
-        `🏦 Pago: Transferencia Banco Pichincha\n\n` +
-        `¡Por favor confírmame el recibo! 🙌`
-      );
-
-      // Save to local history
-      const newOrder: OrderRecord = {
-        id: `order_${Date.now()}`,
-        userId: userProfile?.userId || "guest",
-        items: fruitNames,
-        toppings: tops,
-        size: sz.label,
-        quantity: quantity,
-        total: parseFloat(total),
-        date: new Date().toISOString()
-      };
-
-      // Save to Firestore for Admin
-      try {
-        await addDoc(collection(db, "orders"), {
-          ...newOrder,
-          timestamp: serverTimestamp(),
-          status: "pending"
-        });
-
-        // Increment referral uses if a generated code was applied
-        if (appliedReferralCode) {
-          try {
-            const codeRef = doc(db, "referral_codes", appliedReferralCode);
-            await updateDoc(codeRef, {
-              uses: increment(1)
-            });
-          } catch (err) {
-            console.error("Error incrementing referral uses:", err);
-          }
-        }
-      } catch (e) {
-        console.error("Error saving order to Firestore:", e);
-      }
-
-      const updatedHistory = [newOrder, ...orderHistory];
-      setOrderHistory(updatedHistory);
-      localStorage.setItem("tyango_orders", JSON.stringify(updatedHistory));
-
-      // Use api.whatsapp.com for better mobile deep linking
-      const whatsappUrl = `https://api.whatsapp.com/send?phone=593994124996&text=${msg}`;
-      
-      // On mobile, window.open can be blocked. window.location.href is more reliable for redirects.
-      window.location.href = whatsappUrl;
+      setShowPaymentModal(false);
       
       setTotalOrders(prev => prev + 1);
       setToastMsg(`¡Gracias por tu compra! Tu TYANGO está en camino.`);
       setShowToast(true);
       setTimeout(() => setShowToast(false), 5000);
+
+      const whatsappUrl = `https://api.whatsapp.com/send?phone=593994124996&text=${msg}`;
+      window.location.href = whatsappUrl;
     }, 2200);
   };
 
