@@ -39,6 +39,33 @@
         "createdAt": { "type": "string", "format": "date-time", "description": "When the code was registered" }
       },
       "required": ["userId", "createdAt"]
+    },
+    "Order": {
+      "title": "Order",
+      "description": "A customer order record for admin tracking.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "items": { "type": "string" },
+        "toppings": { "type": "string" },
+        "size": { "type": "string" },
+        "quantity": { "type": "number" },
+        "total": { "type": "number" },
+        "date": { "type": "string" },
+        "status": { "type": "string", "enum": ["pending", "completed", "cancelled"] },
+        "timestamp": { "type": "object", "description": "Firestore ServerTimestamp" }
+      },
+      "required": ["userId", "items", "size", "quantity", "total", "date"]
+    },
+    "ProductSettings": {
+      "title": "Product Settings",
+      "description": "Global availability toggles for products.",
+      "type": "object",
+      "properties": {
+        "mini": { "type": "boolean" },
+        "clasico": { "type": "boolean" },
+        "premium": { "type": "boolean" }
+      }
     }
   },
   "firestore": {
@@ -53,6 +80,14 @@
     "/referral_codes/{code}": {
       "schema": "ReferralCode",
       "description": "Global registry of generated referral codes."
+    },
+    "/orders/{orderId}": {
+      "schema": "Order",
+      "description": "Real-time orders for admin panel."
+    },
+    "/settings/products": {
+      "schema": "ProductSettings",
+      "description": "Global product availability settings."
     }
   }
 }

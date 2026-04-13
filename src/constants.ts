@@ -46,8 +46,8 @@ export const toppings: Topping[] = [
 ];
 
 export const sizes: Record<string, Size> = {
-  mini: { label: "Mini", weight: 60, price: 0.6 },
-  clasico: { label: "Clásico", weight: 100, price: 1.25 },
+  mini: { label: "Mini", weight: 60, price: 1.50 },
+  clasico: { label: "Clásico", weight: 100, price: 2.50 },
   premium: { label: "Premium", weight: 150, price: 1.75, isSoldOut: true },
 };
 

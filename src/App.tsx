@@ -51,6 +51,7 @@ import {
   type Testimonial
 } from "./constants";
 import { fruitArt, toppingArt } from "./lib/canvasArt";
+import AdminPanel from "./AdminPanel";
 
 // ─── TYPES ───
 interface UserProfile {
@@ -122,7 +123,16 @@ export default function App() {
   const [liveOrder, setLiveOrder] = useState<string>("");
   
   // Reviews state
-  const [reviews, setReviews] = useState<Review[]>([]);
+  const [reviews, setReviews] = useState<Review[]>(
+    testimonials.map((t, i) => ({
+      id: `rev-${i}`,
+      name: t.name,
+      rating: 5,
+      text: t.text,
+      date: new Date().toISOString(),
+      avatar: t.avatar
+    }))
+  );
   const [showReviewForm, setShowReviewForm] = useState<boolean>(false);
   const [newReview, setNewReview] = useState({ rating: 5, text: "", name: "" });
 
@@ -139,6 +149,32 @@ export default function App() {
 
   // Payment Modal State
   const [showPaymentModal, setShowPaymentModal] = useState<boolean>(false);
+
+  // Dynamic Sizes State (for Admin toggles)
+  const [dynamicSizes, setDynamicSizes] = useState<Record<string, Size>>(sizes);
+
+  useEffect(() => {
+    const unsub = onSnapshot(doc(db, "settings", "products"), (docSnap) => {
+      if (docSnap.exists()) {
+        const data = docSnap.data();
+        const updated = { ...sizes };
+        Object.keys(data).forEach(key => {
+          if (updated[key]) {
+            updated[key] = { ...updated[key], isSoldOut: !data[key] };
+          }
+        });
+        setDynamicSizes(updated);
+      }
+    });
+    return () => unsub();
+  }, []);
+
+  // Routing
+  const isPathAdmin = window.location.pathname === "/admin";
+
+  if (isPathAdmin) {
+    return <AdminPanel />;
+  }
 
   // Initialize Local Profile and Data
   useEffect(() => {
@@ -179,37 +215,25 @@ export default function App() {
     }
   }, []);
 
-  // Real-time reviews (Delayed for performance)
+  // Real-time reviews
   useEffect(() => {
-    const timer = setTimeout(() => {
-      const q = query(collection(db, "reviews"), orderBy("date", "desc"), limit(20));
-      const unsubscribeReviews = onSnapshot(q, (snapshot) => {
-        const fetchedReviews = snapshot.docs.map(doc => ({
-          id: doc.id,
-          ...doc.data()
-        })) as Review[];
-        
-        if (fetchedReviews.length > 0) {
-          setReviews(fetchedReviews);
-        } else {
-          const initialReviews: Review[] = testimonials.map((t, i) => ({
-            id: `rev-${i}`,
-            name: t.name,
-            rating: 5,
-            text: t.text,
-            date: new Date().toISOString(),
-            avatar: t.avatar
-          }));
-          setReviews(initialReviews);
-        }
-      }, (error) => {
-        console.error("Firestore Error (Reviews):", error);
-      });
+    const q = query(collection(db, "reviews"), orderBy("date", "desc"), limit(20));
+    const unsubscribeReviews = onSnapshot(q, (snapshot) => {
+      const fetchedReviews = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      })) as Review[];
+      
+      // If we have reviews in Firestore, use them. 
+      // Otherwise, the state already has the initial testimonials.
+      if (fetchedReviews.length > 0) {
+        setReviews(fetchedReviews);
+      }
+    }, (error) => {
+      console.error("Firestore Error (Reviews):", error);
+    });
 
-      return () => unsubscribeReviews();
-    }, 1500);
-
-    return () => clearTimeout(timer);
+    return () => unsubscribeReviews();
   }, []);
 
   // Live Feed Logic
@@ -442,7 +466,7 @@ export default function App() {
       setShowOrderSuccessAnimation(false);
       setOrderConfirmed(true);
       
-      const sz = sizes[selectedSize];
+      const sz = dynamicSizes[selectedSize];
       const base = sz.price * quantity;
       const disc = discountPct > 0 ? base * (discountPct / 100) : 0;
       const total = (base - disc).toFixed(2);
@@ -473,6 +497,17 @@ export default function App() {
         date: new Date().toISOString()
       };
 
+      // Save to Firestore for Admin
+      try {
+        await addDoc(collection(db, "orders"), {
+          ...newOrder,
+          timestamp: serverTimestamp(),
+          status: "pending"
+        });
+      } catch (e) {
+        console.error("Error saving order to Firestore:", e);
+      }
+
       const updatedHistory = [newOrder, ...orderHistory];
       setOrderHistory(updatedHistory);
       localStorage.setItem("tyango_orders", JSON.stringify(updatedHistory));
@@ -494,7 +529,7 @@ export default function App() {
     if (selectedFruits.length === 0) return;
     const tops = selectedToppings.length > 0 ? selectedToppings.map(t => t.name).join(", ") : "Sin aderezos";
     const fruitNames = selectedFruits.map(f => `${f.emoji} ${f.name}`).join(" + ");
-    const text = `¡Mira mi combinación TYANGO Mix! 🍓\n🍎 ${fruitNames}\n🌶️ Aderezos: ${tops}\n📦 Tamaño: ${sizes[selectedSize].label} (${sizes[selectedSize].weight}g)\n🔢 Cantidad: ${quantity} uds\n⚖️ Peso Total: ${sizes[selectedSize].weight * quantity}g\n\n¿Te animas a probar? 👉 ${window.location.href} @tyango_ec`;
+    const text = `¡Mira mi combinación TYANGO Mix! 🍓\n🍎 ${fruitNames}\n🌶️ Aderezos: ${tops}\n📦 Tamaño: ${dynamicSizes[selectedSize].label} (${dynamicSizes[selectedSize].weight}g)\n🔢 Cantidad: ${quantity} uds\n⚖️ Peso Total: ${dynamicSizes[selectedSize].weight * quantity}g\n\n¿Te animas a probar? 👉 ${window.location.href} @tyango_ec`;
     
     setCustomShareText(text);
     setSharePlatform(platform);
@@ -528,10 +563,10 @@ export default function App() {
     }, 3000);
   };
 
-  const basePrice = sizes[selectedSize].price * quantity;
+  const basePrice = dynamicSizes[selectedSize].price * quantity;
   const discountAmount = discountPct > 0 ? basePrice * (discountPct / 100) : 0;
   const totalPrice = (basePrice - discountAmount).toFixed(2);
-  const totalWeight = sizes[selectedSize].weight * quantity;
+  const totalWeight = dynamicSizes[selectedSize].weight * quantity;
 
   return (
     <div className="min-h-screen bg-[#0a0a0a] text-white font-sans selection:bg-purple-500 selection:text-white">
@@ -888,7 +923,7 @@ export default function App() {
 
               {/* Size Selector */}
               <div className="grid grid-cols-2 sm:flex p-1.5 bg-white/5 border border-white/10 rounded-3xl sm:rounded-full gap-1.5">
-                {Object.entries(sizes).map(([key, size]) => {
+                {(Object.entries(dynamicSizes) as [string, Size][]).map(([key, size]) => {
                   const isActive = selectedSize === key;
                   const sizeColors = {
                     mini: isActive ? "bg-blue-500 text-white shadow-blue-500/20" : "hover:text-blue-400",
@@ -1381,7 +1416,7 @@ export default function App() {
                     </div>
                     <div className="flex justify-between items-center">
                       <div className="text-[10px] font-black uppercase tracking-widest text-white/40">Tamaño</div>
-                      <div className="text-sm font-bold">{sizes[selectedSize].label} ({sizes[selectedSize].weight}g)</div>
+                      <div className="text-sm font-bold">{dynamicSizes[selectedSize].label} ({dynamicSizes[selectedSize].weight}g)</div>
                     </div>
                     <div className="flex justify-between items-center">
                       <div className="text-[10px] font-black uppercase tracking-widest text-white/40">Cantidad</div>

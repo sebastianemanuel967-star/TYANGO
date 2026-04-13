@@ -41,6 +41,16 @@ service cloud.firestore {
     // Helper Functions
     // ===============================================================
     
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isAdmin() {
+      return isAuthenticated() && 
+             request.auth.token.email == "sebastianemanuel967@gmail.com" && 
+             request.auth.token.email_verified == true;
+    }
+
     function isValidUser(data) {
       return data.keys().hasAll(['userId', 'referralCode', 'referralsCount', 'totalRewards']) &&
              data.userId is string && data.userId.size() < 100 &&
@@ -64,26 +74,46 @@ service cloud.firestore {
              data.createdAt is timestamp;
     }
 
+    function isValidOrder(data) {
+      return data.keys().hasAll(['userId', 'items', 'size', 'quantity', 'total', 'date']) &&
+             data.userId is string &&
+             data.items is string &&
+             data.size is string &&
+             data.quantity is number &&
+             data.total is number &&
+             data.date is string;
+    }
+
     // ===============================================================
     // Rules
     // ===============================================================
 
     match /users/{userId} {
-      // Since we removed Auth, we allow public read/write for local-first sync
-      // but in a real app we'd need a better way to secure this.
-      allow read, write: if true; 
+      allow read, write: if true; // Public for guest sync
+      allow list: if isAdmin();
     }
 
     match /reviews/{reviewId} {
       allow read: if true;
       allow create: if isValidReview(request.resource.data);
-      allow update, delete: if false; // Only admin via console
+      allow update, delete: if isAdmin();
     }
 
     match /referral_codes/{code} {
       allow read: if true;
       allow create: if isValidReferralCode(request.resource.data);
-      allow update, delete: if false;
+      allow update, delete: if isAdmin();
+    }
+
+    match /orders/{orderId} {
+      allow read: if isAdmin();
+      allow create: if isValidOrder(request.resource.data);
+      allow update, delete: if isAdmin();
+    }
+
+    match /settings/{docId} {
+      allow read: if true;
+      allow write: if isAdmin();
     }
   }
 }
