@@ -96,6 +96,11 @@ service cloud.firestore {
       allow list: if isAdmin();
     }
 
+    match /phone_to_user/{phone} {
+      allow get: if true;
+      allow write: if true;
+    }
+
     match /reviews/{reviewId} {
       allow read: if true;
       allow create: if isValidReview(request.resource.data);

@@ -34,6 +34,7 @@ interface Order {
   date: string;
   status: string;
   userId: string;
+  phone?: string;
 }
 
 interface Review {
@@ -346,6 +347,11 @@ export default function AdminPanel() {
                           <span className="text-[10px] font-black uppercase tracking-widest text-purple-400">
                             {new Date(order.date).toLocaleString('es-EC')}
                           </span>
+                          {order.phone && (
+                            <span className="text-[10px] font-black uppercase tracking-widest text-amber-500">
+                              📱 {order.phone}
+                            </span>
+                          )}
                           <span className={`px-2 py-0.5 rounded-full text-[8px] font-black uppercase tracking-widest ${
                             order.status === 'completed' ? 'bg-green-500/10 text-green-500' : 'bg-amber-500/10 text-amber-500'
                           }`}>

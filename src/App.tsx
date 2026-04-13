@@ -36,6 +36,7 @@ import {
   increment,
   onSnapshot, 
   query, 
+  where,
   orderBy,
   limit,
   serverTimestamp,
@@ -542,19 +543,20 @@ export default function App() {
     // Handle User Profile Sync by Phone
     let currentProfile = userProfile;
     try {
-      // 1. Try to find user by phone in Firestore
-      const usersRef = collection(db, "users");
-      const q = query(usersRef, limit(100)); // Simple scan since we don't have indexes yet
-      const querySnapshot = await getDocs(usersRef);
-      let existingUserDoc = querySnapshot.docs.find(d => d.data().phone === userPhone);
-
-      if (existingUserDoc) {
-        const cloudData = existingUserDoc.data() as UserProfile;
-        currentProfile = {
-          ...cloudData,
-          // Merge local points if they are higher (optional logic)
-          loyaltyPoints: Math.max(cloudData.loyaltyPoints || 0, userProfile?.loyaltyPoints || 0)
-        };
+      // 1. Try to find user by phone using a dedicated lookup collection (more secure and efficient)
+      const phoneLookupRef = doc(db, "phone_to_user", userPhone);
+      const lookupSnap = await getDoc(phoneLookupRef);
+      
+      if (lookupSnap.exists()) {
+        const { userId } = lookupSnap.data();
+        const userSnap = await getDoc(doc(db, "users", userId));
+        if (userSnap.exists()) {
+          const cloudData = userSnap.data() as UserProfile;
+          currentProfile = {
+            ...cloudData,
+            loyaltyPoints: Math.max(cloudData.loyaltyPoints || 0, userProfile?.loyaltyPoints || 0)
+          };
+        }
       } else {
         // Create or update current profile with phone
         currentProfile = {
@@ -569,6 +571,8 @@ export default function App() {
           }),
           phone: userPhone
         };
+        // Create the lookup entry
+        await setDoc(doc(db, "phone_to_user", userPhone), { userId: currentProfile.userId });
       }
       
       setUserProfile(currentProfile);
@@ -668,22 +672,28 @@ export default function App() {
 
     setIsSyncing(true);
     try {
-      const usersRef = collection(db, "users");
-      const querySnapshot = await getDocs(usersRef);
-      const existingUserDoc = querySnapshot.docs.find(d => d.data().phone === userPhone);
+      const phoneLookupRef = doc(db, "phone_to_user", userPhone);
+      const lookupSnap = await getDoc(phoneLookupRef);
 
-      if (existingUserDoc) {
-        const cloudData = existingUserDoc.data() as UserProfile;
-        setUserProfile(cloudData);
-        localStorage.setItem("tyango_profile", JSON.stringify(cloudData));
-        setToastMsg("¡Puntos recuperados con éxito! 💜");
+      if (lookupSnap.exists()) {
+        const { userId } = lookupSnap.data();
+        const userSnap = await getDoc(doc(db, "users", userId));
+        if (userSnap.exists()) {
+          const cloudData = userSnap.data() as UserProfile;
+          setUserProfile(cloudData);
+          localStorage.setItem("tyango_profile", JSON.stringify(cloudData));
+          setToastMsg("¡Puntos recuperados con éxito! 💜");
+        } else {
+          setToastMsg("Error al recuperar el perfil.");
+        }
       } else {
-        // Just update current profile with phone
+        // Just update current profile with phone if it's new
         if (userProfile) {
           const updated = { ...userProfile, phone: userPhone };
           setUserProfile(updated);
           localStorage.setItem("tyango_profile", JSON.stringify(updated));
           await setDoc(doc(db, "users", userProfile.userId), updated, { merge: true });
+          await setDoc(doc(db, "phone_to_user", userPhone), { userId: userProfile.userId });
           setToastMsg("Número vinculado a tu cuenta ✓");
         } else {
           setToastMsg("No encontramos puntos para este número.");
@@ -1190,7 +1200,7 @@ export default function App() {
 
           {/* Right: Preview & Checkout */}
           <div className="lg:col-span-5">
-            <div className="sticky top-32 space-y-8">
+            <div className="lg:sticky lg:top-32 space-y-8">
               {/* Bag Preview */}
               <div className="relative aspect-[4/5] bg-white/[0.03] border border-white/5 rounded-[40px] overflow-hidden flex items-center justify-center">
                 <div className="absolute inset-0 bg-gradient-to-b from-purple-500/5 to-transparent" />
