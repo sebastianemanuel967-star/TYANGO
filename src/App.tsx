@@ -175,6 +175,76 @@ export default function App() {
 
   // Payment Modal State
   const [showPaymentModal, setShowPaymentModal] = useState<boolean>(false);
+  const [deliveryTime, setDeliveryTime] = useState<string>("");
+  const [deliveryAddress, setDeliveryAddress] = useState<string>("");
+
+  // Exit Intent State
+  const [showExitModal, setShowExitModal] = useState<boolean>(false);
+  const [exitCountdown, setExitCountdown] = useState<number>(300); // 5 minutes
+
+  // Daily Offer Countdown State
+  const [offerTimeLeft, setOfferTimeLeft] = useState<string>("");
+  const [isOfferExpired, setIsOfferExpired] = useState<boolean>(false);
+
+  // Configurator Progress Bar State
+  const [showProgress, setShowProgress] = useState<boolean>(false);
+  const configuratorRef = useRef<HTMLElement | null>(null);
+
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        setShowProgress(entry.isIntersecting);
+      },
+      { threshold: 0.1 }
+    );
+
+    const target = document.getElementById("configurar");
+    if (target) {
+      configuratorRef.current = target;
+      observer.observe(target);
+    }
+
+    return () => {
+      if (configuratorRef.current) {
+        observer.unobserve(configuratorRef.current);
+      }
+    };
+  }, []);
+
+  const currentStep = orderConfirmed 
+    ? 4 
+    : selectedToppings.length > 0 
+      ? 3 
+      : selectedFruits.length > 0 
+        ? 2 
+        : 1;
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      const now = new Date();
+      // Get current time in Quito (UTC-5)
+      const quitoStr = now.toLocaleString("en-US", { timeZone: "America/Guayaquil" });
+      const quitoTime = new Date(quitoStr);
+      
+      const midnight = new Date(quitoTime);
+      midnight.setHours(24, 0, 0, 0);
+      
+      const diff = midnight.getTime() - quitoTime.getTime();
+      
+      if (diff <= 0) {
+        setIsOfferExpired(true);
+        setOfferTimeLeft("00:00:00");
+      } else {
+        const h = Math.floor(diff / 3600000).toString().padStart(2, '0');
+        const m = Math.floor((diff % 3600000) / 60000).toString().padStart(2, '0');
+        const s = Math.floor((diff % 60000) / 1000).toString().padStart(2, '0');
+        setOfferTimeLeft(`${h}:${m}:${s}`);
+        setIsOfferExpired(false);
+      }
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, []);
 
   // Dynamic Sizes State (for Admin toggles)
   const [dynamicSizes, setDynamicSizes] = useState<Record<string, Size>>(sizes);
@@ -392,6 +462,50 @@ export default function App() {
     renderBag();
   }, [selectedFruits, selectedToppings]);
 
+  // Exit Intent Logic
+  useEffect(() => {
+    const hasShown = sessionStorage.getItem("tyango_exit_shown");
+    if (hasShown) return;
+
+    const handleMouseLeave = (e: MouseEvent) => {
+      if (e.clientY < 20) {
+        setShowExitModal(true);
+        sessionStorage.setItem("tyango_exit_shown", "true");
+        document.removeEventListener("mouseleave", handleMouseLeave);
+      }
+    };
+
+    const timer = setTimeout(() => {
+      if (!sessionStorage.getItem("tyango_exit_shown")) {
+        setShowExitModal(true);
+        sessionStorage.setItem("tyango_exit_shown", "true");
+        document.removeEventListener("mouseleave", handleMouseLeave);
+      }
+    }, 60000);
+
+    document.addEventListener("mouseleave", handleMouseLeave);
+    return () => {
+      document.removeEventListener("mouseleave", handleMouseLeave);
+      clearTimeout(timer);
+    };
+  }, []);
+
+  useEffect(() => {
+    let interval: any;
+    if (showExitModal && exitCountdown > 0) {
+      interval = setInterval(() => {
+        setExitCountdown((prev) => prev - 1);
+      }, 1000);
+    }
+    return () => clearInterval(interval);
+  }, [showExitModal, exitCountdown]);
+
+  const formatTime = (seconds: number) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+  };
+
   const toggleFruit = (fruit: Fruit) => {
     setSelectedFruits((prev) => {
       if (selectionMode === 'individual') {
@@ -545,6 +659,9 @@ export default function App() {
     const tops = selectedToppings.length > 0 ? selectedToppings.map((t) => t.name).join(", ") : "Sin aderezos";
     const fruitNames = selectedFruits.map(f => `${f.emoji} ${f.name}`).join(" + ");
     
+    const deliveryTimeLine = deliveryTime ? `⏰ Horario preferido: ${deliveryTime}\n` : "";
+    const deliveryAddressLine = `📍 Dirección: ${deliveryAddress || "Por coordinar en chat"}\n`;
+    
     const msg = encodeURIComponent(
       `¡Hola TYANGO! 🍓 He realizado el pago de mi pedido (${selectionMode.toUpperCase()}):\n\n` +
       `🍎 Frutas: ${fruitNames}\n` +
@@ -553,6 +670,8 @@ export default function App() {
       `🔢 Cantidad: ${quantity} unidades\n` +
       `⚖️ Peso Total: ${sz.weight * quantity}g\n` +
       `💜 Total: $${total}\n` +
+      deliveryTimeLine +
+      deliveryAddressLine +
       `🏦 Pago: Transferencia Banco Pichincha\n` +
       `📱 WhatsApp: ${userPhone}\n\n` +
       `¡Por favor confírmame el recibo! 🙌`
@@ -799,7 +918,11 @@ export default function App() {
   };
 
   const basePrice = dynamicSizes[selectedSize].price * quantity;
-  const discountAmount = discountPct > 0 ? basePrice * (discountPct / 100) : 0;
+  const autoDiscountPct = discountPct === 0 
+    ? (quantity >= 5 ? 10 : (quantity >= 3 ? 5 : 0)) 
+    : 0;
+  const effectiveDiscountPct = discountPct > 0 ? discountPct : autoDiscountPct;
+  const discountAmount = effectiveDiscountPct > 0 ? basePrice * (effectiveDiscountPct / 100) : 0;
   const totalPrice = (basePrice - discountAmount).toFixed(2);
   const totalWeight = dynamicSizes[selectedSize].weight * quantity;
 
@@ -894,6 +1017,57 @@ export default function App() {
           </motion.div>
         </AnimatePresence>
       </div>
+
+      {/* Sticky Progress Bar */}
+      <AnimatePresence>
+        {showProgress && (
+          <motion.div
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -20 }}
+            className="fixed top-[68px] md:top-[88px] left-0 right-0 z-40 bg-black/80 backdrop-blur-xl border-b border-white/5 px-6 py-3"
+          >
+            <div className="max-w-7xl mx-auto flex items-center justify-center gap-4 md:gap-8">
+              {[
+                { id: 1, label: "Fruta" },
+                { id: 2, label: "Aderezos" },
+                { id: 3, label: "Descuento" },
+                { id: 4, label: "Pago" }
+              ].map((step) => {
+                const isCompleted = currentStep > step.id;
+                const isActive = currentStep === step.id;
+
+                return (
+                  <div key={step.id} className="flex items-center gap-2">
+                    <div className={`relative flex items-center justify-center w-6 h-6 rounded-full text-[10px] font-black transition-all ${
+                      isActive ? "bg-purple-600 text-white" : 
+                      isCompleted ? "bg-green-500 text-white" : "bg-white/10 text-white/40"
+                    }`}>
+                      {isCompleted ? <CheckCircle2 size={12} /> : step.id}
+                      {isActive && (
+                        <motion.div
+                          layoutId="active-step-glow"
+                          className="absolute inset-0 rounded-full bg-purple-600 blur-md -z-10"
+                          initial={{ opacity: 0 }}
+                          animate={{ opacity: 0.5 }}
+                        />
+                      )}
+                    </div>
+                    <span className={`hidden md:block text-[10px] font-black uppercase tracking-widest transition-colors ${
+                      isActive ? "text-white" : "text-white/40"
+                    }`}>
+                      {step.label}
+                    </span>
+                  </div>
+                );
+              })}
+              <div className="md:hidden text-[10px] font-black uppercase tracking-widest text-white/40">
+                Paso <span className="text-purple-500">{currentStep}</span> de 4
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Hero Section */}
       <section className="relative min-h-screen flex flex-col items-center justify-center px-4 pt-20 text-center z-10">
@@ -992,6 +1166,56 @@ export default function App() {
         </div>
       </motion.section>
 
+      {/* Daily Offer Section */}
+      <section className="py-12 px-6 z-10 relative">
+        <motion.div 
+          initial={{ opacity: 0, y: 20 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }}
+          className="max-w-4xl mx-auto bg-gradient-to-r from-purple-600/20 to-amber-500/20 border border-white/10 rounded-[40px] py-10 px-8 md:px-12 flex flex-col md:flex-row items-center justify-between gap-8"
+        >
+          <div className="space-y-4 text-center md:text-left">
+            <div className="inline-flex items-center gap-2 px-3 py-1 bg-amber-500/10 border border-amber-500/20 rounded-full animate-pulse">
+              <span className="w-1.5 h-1.5 bg-amber-500 rounded-full" />
+              <span className="text-[10px] font-black uppercase tracking-widest text-amber-500">Oferta del Día</span>
+            </div>
+            <h2 className="text-2xl md:text-3xl font-black tracking-tighter leading-tight">
+              Tyango Clásico + 2 aderezos <br />
+              <span className="text-purple-500">a precio especial.</span>
+            </h2>
+            <div className="flex items-center justify-center md:justify-start gap-4">
+              <span className="text-xl font-bold text-white/20 line-through">$2.50</span>
+              <span className="text-4xl font-black text-amber-400">$1.99</span>
+            </div>
+          </div>
+
+          <div className="flex flex-col items-center gap-6 min-w-[200px]">
+            <div className="text-center space-y-2">
+              {!isOfferExpired ? (
+                <>
+                  <div className="text-3xl font-black tracking-tighter font-mono text-white/90">{offerTimeLeft}</div>
+                  <div className="text-[10px] font-bold uppercase tracking-widest text-white/20">Termina en</div>
+                </>
+              ) : (
+                <div className="text-sm font-black uppercase tracking-widest text-amber-500">¡Oferta terminada! Vuelve mañana</div>
+              )}
+            </div>
+            
+            <motion.button 
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              onClick={() => {
+                setSelectedSize("clasico");
+                document.getElementById("configurar")?.scrollIntoView({ behavior: "smooth" });
+              }}
+              className="px-8 py-4 bg-white text-black font-black uppercase tracking-widest rounded-full hover:bg-purple-500 hover:text-white transition-all text-[10px]"
+            >
+              Aprovechar ahora
+            </motion.button>
+          </div>
+        </motion.div>
+      </section>
+
       {/* Sizes Section */}
       <section className="py-32 px-6 max-w-7xl mx-auto z-10 relative">
         <div className="text-center mb-16">
@@ -1012,7 +1236,7 @@ export default function App() {
               <div className="space-y-2 text-center">
                 <h3 className="text-3xl font-black tracking-tighter">MINI</h3>
                 <div className="px-4 py-1 bg-blue-500/10 border border-blue-500/20 rounded-full text-[10px] font-black uppercase tracking-widest text-blue-500">
-                  60 Gramos
+                  155 Gramos
                 </div>
               </div>
               <p className="text-sm text-white/40 font-medium text-center hidden sm:block">El snack ideal para un antojo rápido y ligero. Frescura concentrada.</p>
@@ -1041,7 +1265,7 @@ export default function App() {
               <div className="space-y-2 text-center">
                 <h3 className="text-3xl font-black tracking-tighter">CLÁSICO</h3>
                 <div className="px-4 py-1 bg-purple-500/10 border border-purple-500/20 rounded-full text-[10px] font-black uppercase tracking-widest text-purple-500">
-                  100 Gramos
+                  311 Gramos
                 </div>
               </div>
               <p className="text-sm text-white/40 font-medium text-center hidden sm:block">Nuestra porción estrella. La cantidad perfecta para disfrutar al máximo.</p>
@@ -1356,6 +1580,18 @@ export default function App() {
                 </div>
               </div>
 
+              {autoDiscountPct > 0 && (
+                <motion.div 
+                  initial={{ opacity: 0, y: -10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="p-4 bg-amber-500/10 border border-amber-500/20 rounded-[24px] flex items-center justify-center gap-3"
+                >
+                  <span className="text-[10px] font-black uppercase tracking-widest text-amber-400">
+                    Pack x{quantity} — {autoDiscountPct}% off aplicado automáticamente 🎉
+                  </span>
+                </motion.div>
+              )}
+
               {/* Summary & Action */}
               <div className="bg-white/5 border border-white/10 rounded-[32px] p-8 space-y-6">
                 <div className="space-y-4">
@@ -1363,9 +1599,9 @@ export default function App() {
                     <span>Subtotal {quantity > 1 && `(${quantity} uds)`}</span>
                     <span className="text-white">${basePrice.toFixed(2)}</span>
                   </div>
-                  {discountPct > 0 && (
+                  {effectiveDiscountPct > 0 && (
                     <div className="flex justify-between text-xs font-bold uppercase tracking-widest text-green-400">
-                      <span>Descuento ({discountPct}%)</span>
+                      <span>Descuento ({effectiveDiscountPct}%)</span>
                       <span>-${discountAmount.toFixed(2)}</span>
                     </div>
                   )}
@@ -1403,6 +1639,60 @@ export default function App() {
                       <Instagram size={16} className="text-white/40 group-hover:text-pink-400 transition-colors" />
                     </motion.button>
                   </div>
+
+                  <AnimatePresence mode="wait">
+                    {parseFloat(totalPrice) < 5 ? (
+                      <motion.div
+                        key="delivery-progress"
+                        initial={{ opacity: 0, height: 0 }}
+                        animate={{ opacity: 1, height: "auto" }}
+                        exit={{ opacity: 0, height: 0 }}
+                        className="p-4 bg-white/5 border border-white/10 rounded-2xl space-y-3 overflow-hidden"
+                      >
+                        <div className="flex justify-between items-center">
+                          <span className="text-[9px] font-black uppercase tracking-widest text-white/40">
+                            Te faltan <span className="text-purple-400">${(5 - parseFloat(totalPrice)).toFixed(2)}</span> para delivery gratis en Calderón
+                          </span>
+                        </div>
+                        <div className="h-1.5 w-full bg-white/5 rounded-full overflow-hidden">
+                          <motion.div 
+                            initial={{ width: 0 }}
+                            animate={{ width: `${Math.min(100, (parseFloat(totalPrice) / 5) * 100)}%` }}
+                            className="h-full bg-purple-500"
+                          />
+                        </div>
+                        <div className="flex justify-between items-center">
+                          <span className="text-[8px] font-bold text-white/20 italic">¡Casi lo logras! Agrega un poco más</span>
+                          <button 
+                            onClick={() => setQuantity(quantity + 1)}
+                            className="text-[8px] font-black uppercase tracking-widest text-purple-400 hover:text-purple-300 transition-colors"
+                          >
+                            + Agregar una unidad
+                          </button>
+                        </div>
+                      </motion.div>
+                    ) : (
+                      <motion.div
+                        key="delivery-success"
+                        initial={{ opacity: 0, height: 0 }}
+                        animate={{ opacity: 1, height: "auto" }}
+                        exit={{ opacity: 0, height: 0 }}
+                        className="p-4 bg-green-500/10 border border-green-500/20 rounded-2xl flex items-center justify-center gap-3 overflow-hidden"
+                      >
+                        <motion.div
+                          initial={{ scale: 0 }}
+                          animate={{ scale: 1 }}
+                          transition={{ type: "spring", stiffness: 300, damping: 15 }}
+                        >
+                          <CheckCircle2 size={14} className="text-green-500" />
+                        </motion.div>
+                        <span className="text-[9px] font-black uppercase tracking-widest text-green-500">
+                          Calificas para delivery en Calderón ✓
+                        </span>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+
                   <motion.button 
                     whileHover={{ scale: 1.02 }}
                     whileTap={{ scale: 0.98 }}
@@ -1899,6 +2189,44 @@ export default function App() {
                     />
                   </div>
 
+                  <div className="space-y-4">
+                    <div className="text-[10px] font-black uppercase tracking-widest text-white/40">Dirección de entrega (opcional)</div>
+                    <input 
+                      type="text"
+                      value={deliveryAddress}
+                      onChange={(e) => setDeliveryAddress(e.target.value)}
+                      placeholder="Ej: Calle Principal y Juan de Selis, Calderón"
+                      autoComplete="street-address"
+                      style={{ fontSize: '16px' }}
+                      className="w-full bg-black/40 border border-white/10 rounded-2xl px-6 py-4 text-sm font-bold focus:outline-none focus:border-amber-500 transition-colors text-white"
+                    />
+                    <p className="text-[9px] font-medium text-white/30 italic">Si no tienes la dirección exacta, la coordinamos por WhatsApp</p>
+                  </div>
+
+                  <div className="space-y-4">
+                    <div className="text-[10px] font-black uppercase tracking-widest text-white/40">¿Cuándo lo recibes?</div>
+                    <div className="grid grid-cols-2 gap-2">
+                      {[
+                        "Mañana 9am-12pm",
+                        "Mediodía 12pm-3pm",
+                        "Tarde 3pm-6pm",
+                        "Coordinar por WhatsApp"
+                      ].map((time) => (
+                        <button
+                          key={time}
+                          onClick={() => setDeliveryTime(time)}
+                          className={`px-4 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all border ${
+                            deliveryTime === time
+                              ? "bg-purple-600 border-purple-400 text-white shadow-lg shadow-purple-600/40"
+                              : "bg-white/5 border-white/10 text-white/60 hover:bg-white/10"
+                          }`}
+                        >
+                          {time}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
                   <div className="flex items-center justify-between">
                     <div className="text-[10px] font-black uppercase tracking-widest text-white/40">Banco</div>
                     <div className="text-sm font-bold text-white">Banco Pichincha</div>
@@ -2043,6 +2371,61 @@ export default function App() {
         )}
       </AnimatePresence>
 
+      {/* Exit Intent Modal */}
+      <AnimatePresence>
+        {showExitModal && (
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[600] flex items-center justify-center p-6 bg-black/90 backdrop-blur-2xl"
+          >
+            <motion.div 
+              initial={{ scale: 0.9, opacity: 0, y: 20 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.9, opacity: 0, y: 20 }}
+              className="relative w-full max-w-md bg-[#111] border border-white/10 rounded-[40px] p-8 md:p-12 text-center space-y-8"
+            >
+              <div className="space-y-2">
+                <h2 className="text-4xl font-black tracking-tighter text-white">¡ESPERA! 🍓</h2>
+                <p className="text-sm font-medium text-white/60 leading-relaxed">
+                  Llévate <span className="text-purple-400 font-black">10% de descuento</span> si pides en los próximos 5 minutos.
+                </p>
+              </div>
+
+              <div className="py-8 bg-white/5 border border-white/10 rounded-3xl">
+                <div className="text-5xl font-black tracking-tighter text-purple-500 font-mono">
+                  {formatTime(exitCountdown)}
+                </div>
+                <div className="text-[10px] font-black uppercase tracking-widest text-white/20 mt-2">Tiempo restante</div>
+              </div>
+
+              <div className="space-y-4">
+                <motion.button 
+                  whileHover={exitCountdown > 0 ? { scale: 1.02 } : {}}
+                  whileTap={exitCountdown > 0 ? { scale: 0.98 } : {}}
+                  disabled={exitCountdown <= 0}
+                  onClick={() => {
+                    setDiscountPct(10);
+                    setShowExitModal(false);
+                    document.getElementById("configurar")?.scrollIntoView({ behavior: "smooth" });
+                  }}
+                  className="w-full py-5 bg-purple-600 hover:bg-purple-500 disabled:bg-white/10 disabled:text-white/20 rounded-full text-xs font-black uppercase tracking-widest transition-all shadow-xl shadow-purple-600/20"
+                >
+                  Quiero mi descuento
+                </motion.button>
+                <button 
+                  onClick={() => setShowExitModal(false)}
+                  className="w-full text-[10px] font-bold uppercase tracking-widest text-white/20 hover:text-white/40 transition-colors"
+                >
+                  No gracias, prefiero pagar completo
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* Toast Notification */}
       <AnimatePresence>
         {showToast && (
@@ -2106,7 +2489,7 @@ export default function App() {
       <div className="lg:hidden fixed bottom-0 left-0 right-0 z-[80] bg-[#111]/95 backdrop-blur-xl border-t border-white/10 px-4 py-3 flex justify-between items-center gap-3">
         <div className="flex flex-col">
           <span className="text-xl font-black">
-            ${(dynamicSizes[selectedSize].price * quantity * (1 - discountPct / 100)).toFixed(2)}
+            ${totalPrice}
           </span>
           <span className="text-[9px] text-white/40 uppercase tracking-widest font-bold">Total a pagar</span>
         </div>

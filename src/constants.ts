@@ -46,8 +46,8 @@ export const toppings: Topping[] = [
 ];
 
 export const sizes: Record<string, Size> = {
-  mini: { label: "Mini", weight: 60, price: 1.50 },
-  clasico: { label: "Clásico", weight: 100, price: 2.50 },
+  mini: { label: "Mini", weight: 155, price: 1.50 },
+  clasico: { label: "Clásico", weight: 311, price: 2.50 },
   premium: { label: "Premium", weight: 150, price: 1.75, isSoldOut: true },
 };
 
@@ -58,6 +58,7 @@ export const referralCodes: Record<string, number> = {
   PRIMERA5: 5,
   FRUTAS10: 10,
   QUITO10: 10,
+  OFERTA: 20,
 };
 
 export const testimonials: Testimonial[] = [
