@@ -968,6 +968,7 @@ export default function App() {
   const effectiveDiscountPct = discountPct > 0 ? discountPct : autoDiscountPct;
   const discountAmount = effectiveDiscountPct > 0 ? basePrice * (effectiveDiscountPct / 100) : 0;
   const totalPrice = (basePrice - discountAmount).toFixed(2);
+  const [intPart, decPart] = totalPrice.split('.');
   const totalWeight = dynamicSizes[selectedSize].weight * quantity;
 
   if (isPathAdmin) {
@@ -1766,7 +1767,11 @@ export default function App() {
                   )}
                   <div className="pt-4 border-t border-white/10 flex justify-between items-end">
                     <div className="text-[10px] font-bold uppercase tracking-widest text-white/40 mb-1">Total a pagar</div>
-                    <div className="text-4xl font-black tracking-tighter">${totalPrice}</div>
+                    <div className="flex items-baseline">
+                      <span className="text-xl font-black align-super mr-0.5 text-white/60">$</span>
+                      <span className="text-5xl font-black tracking-tighter tabular-nums" style={{ fontVariantNumeric: 'tabular-nums' }}>{intPart}</span>
+                      <span className="text-2xl font-black text-white/60 align-super">.{decPart}</span>
+                    </div>
                   </div>
                 </div>
 
@@ -2283,7 +2288,11 @@ export default function App() {
 
                   <div className="pt-6 border-t border-white/10 flex justify-between items-end">
                     <div className="text-[10px] font-black uppercase tracking-widest text-white/40 mb-1">Total a pagar</div>
-                    <div className="text-3xl font-black tracking-tighter text-white">${totalPrice}</div>
+                    <div className="flex items-baseline text-white">
+                      <span className="text-xl font-black align-super mr-0.5 text-white/60">$</span>
+                      <span className="text-5xl font-black tracking-tighter tabular-nums" style={{ fontVariantNumeric: 'tabular-nums' }}>{intPart}</span>
+                      <span className="text-2xl font-black text-white/60 align-super">.{decPart}</span>
+                    </div>
                   </div>
                 </div>
 
@@ -2409,7 +2418,11 @@ export default function App() {
                   </div>
                   <div className="flex items-center justify-between">
                     <div className="text-[10px] font-black uppercase tracking-widest text-white/40">Monto Total</div>
-                    <div className="text-2xl font-black text-amber-500">${totalPrice}</div>
+                    <div className="flex items-baseline text-amber-500">
+                      <span className="text-xl font-black align-super mr-0.5 text-white/60">$</span>
+                      <span className="text-5xl font-black tracking-tighter tabular-nums" style={{ fontVariantNumeric: 'tabular-nums' }}>{intPart}</span>
+                      <span className="text-2xl font-black text-white/60 align-super">.{decPart}</span>
+                    </div>
                   </div>
                 </div>
 
