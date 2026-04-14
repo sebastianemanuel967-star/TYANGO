@@ -124,6 +124,7 @@ export default function App() {
   const [toastMsg, setToastMsg] = useState<string>("");
   const bagCanvasRef = useRef<HTMLCanvasElement>(null);
   const [totalOrders, setTotalOrders] = useState<number>(124);
+  const [animatedOrders, setAnimatedOrders] = useState<number>(0);
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [orderHistory, setOrderHistory] = useState<OrderRecord[]>([]);
   const [showReferralDashboard, setShowReferralDashboard] = useState<boolean>(false);
@@ -275,6 +276,35 @@ export default function App() {
     const timer = setTimeout(() => setIsAppLoading(false), 800);
     return () => clearTimeout(timer);
   }, []);
+
+  useEffect(() => {
+    const unsub = onSnapshot(collection(db, "orders"), (snap) => {
+      setTotalOrders(124 + snap.size);
+    });
+    return () => unsub();
+  }, []);
+
+  useEffect(() => {
+    const duration = 1500;
+    const steps = 60;
+    const stepTime = duration / steps;
+    
+    let current = 0;
+    const target = totalOrders;
+    const increment = target / steps;
+    
+    const timer = setInterval(() => {
+      current += increment;
+      if (current >= target) {
+        setAnimatedOrders(target);
+        clearInterval(timer);
+      } else {
+        setAnimatedOrders(Math.floor(current));
+      }
+    }, stepTime);
+    
+    return () => clearInterval(timer);
+  }, [totalOrders]);
 
   // Initialize Local Profile and Data
   useEffect(() => {
@@ -1078,6 +1108,22 @@ export default function App() {
         >
           <span className="w-1.5 h-1.5 bg-amber-400 rounded-full animate-pulse" />
           <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-amber-400/80">Quito, Ecuador · Snacks Premium</span>
+        </motion.div>
+
+        <motion.div 
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.05 }}
+          className="flex items-center gap-3 justify-center mb-8"
+        >
+          <div className="flex -space-x-3">
+            <div className="w-8 h-8 rounded-full bg-purple-600/40 border-2 border-purple-500 flex items-center justify-center text-sm shadow-lg z-30">🍓</div>
+            <div className="w-8 h-8 rounded-full bg-purple-600/40 border-2 border-purple-500 flex items-center justify-center text-sm shadow-lg z-20">🥭</div>
+            <div className="w-8 h-8 rounded-full bg-purple-600/40 border-2 border-purple-500 flex items-center justify-center text-sm shadow-lg z-10">🍉</div>
+          </div>
+          <div className="text-sm">
+            <span className="font-black text-white">{animatedOrders}</span> <span className="text-white/50">personas ya pidieron su TYANGO</span>
+          </div>
         </motion.div>
 
         <motion.h1 
