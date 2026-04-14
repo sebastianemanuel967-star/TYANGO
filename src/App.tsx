@@ -123,6 +123,7 @@ export default function App() {
   const [showToast, setShowToast] = useState<boolean>(false);
   const [toastMsg, setToastMsg] = useState<string>("");
   const bagCanvasRef = useRef<HTMLCanvasElement>(null);
+  const heroBagCanvasRef = useRef<HTMLCanvasElement>(null);
   const [totalOrders, setTotalOrders] = useState<number>(124);
   const [animatedOrders, setAnimatedOrders] = useState<number>(0);
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
@@ -442,52 +443,54 @@ export default function App() {
 
   // Render bag canvas
   const renderBag = () => {
-    const canvas = bagCanvasRef.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return;
-    const W = canvas.width;
-    const H = canvas.height;
-    ctx.clearRect(0, 0, W, H);
+    const canvases = [bagCanvasRef.current, heroBagCanvasRef.current].filter(Boolean) as HTMLCanvasElement[];
+    
+    canvases.forEach(canvas => {
+      const ctx = canvas.getContext("2d");
+      if (!ctx) return;
+      const W = canvas.width;
+      const H = canvas.height;
+      ctx.clearRect(0, 0, W, H);
 
-    if (selectedFruits.length === 0) {
-      ctx.save();
-      ctx.globalAlpha = 0.06;
-      ctx.beginPath();
-      ctx.arc(W / 2, H / 2 + 10, 46, 0, Math.PI * 2);
-      ctx.fillStyle = "#fff";
-      ctx.fill();
-      ctx.restore();
-      return;
-    }
-
-    const cx = W / 2;
-    const cy = H / 2 - 8;
-    const mainR = 46;
-
-    // Draw background fruits (faded)
-    selectedFruits.forEach((fruit, i) => {
-      const artFn = fruitArt[fruit.id as keyof typeof fruitArt];
-      if (artFn) {
+      if (selectedFruits.length === 0) {
         ctx.save();
-        ctx.globalAlpha = 0.3;
-        const offsetX = i === 0 ? -35 : i === 1 ? 35 : 0;
-        const offsetY = i === 2 ? 45 : 25;
-        artFn(ctx, cx + offsetX, cy + offsetY, 22);
+        ctx.globalAlpha = 0.06;
+        ctx.beginPath();
+        ctx.arc(W / 2, H / 2 + 10, 46, 0, Math.PI * 2);
+        ctx.fillStyle = "#fff";
+        ctx.fill();
         ctx.restore();
+        return;
+      }
+
+      const cx = W / 2;
+      const cy = H / 2 - 8;
+      const mainR = 46;
+
+      // Draw background fruits (faded)
+      selectedFruits.forEach((fruit, i) => {
+        const artFn = fruitArt[fruit.id as keyof typeof fruitArt];
+        if (artFn) {
+          ctx.save();
+          ctx.globalAlpha = 0.3;
+          const offsetX = i === 0 ? -35 : i === 1 ? 35 : 0;
+          const offsetY = i === 2 ? 45 : 25;
+          artFn(ctx, cx + offsetX, cy + offsetY, 22);
+          ctx.restore();
+        }
+      });
+
+      // Draw primary fruit (first selected)
+      const primaryFruit = selectedFruits[0];
+      const artFn = fruitArt[primaryFruit.id as keyof typeof fruitArt];
+      if (artFn) {
+        artFn(ctx, cx, cy, mainR);
+        selectedToppings.forEach((t) => {
+          const fn = toppingArt[t.id as keyof typeof toppingArt];
+          if (fn) fn(ctx, cx, cy, mainR);
+        });
       }
     });
-
-    // Draw primary fruit (first selected)
-    const primaryFruit = selectedFruits[0];
-    const artFn = fruitArt[primaryFruit.id as keyof typeof fruitArt];
-    if (artFn) {
-      artFn(ctx, cx, cy, mainR);
-      selectedToppings.forEach((t) => {
-        const fn = toppingArt[t.id as keyof typeof toppingArt];
-        if (fn) fn(ctx, cx, cy, mainR);
-      });
-    }
   };
 
   useEffect(() => {
@@ -1111,74 +1114,157 @@ export default function App() {
       </AnimatePresence>
 
       {/* Hero Section */}
-      <section className="relative min-h-screen flex flex-col items-center justify-center px-4 pt-20 text-center z-10">
-        <motion.div 
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="inline-flex items-center gap-2 px-4 py-1.5 bg-white/5 border border-white/10 rounded-full mb-8"
-        >
-          <span className="w-1.5 h-1.5 bg-amber-400 rounded-full animate-pulse" />
-          <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-amber-400/80">Quito, Ecuador · Snacks Premium</span>
-        </motion.div>
+      <section className="relative min-h-screen flex items-center justify-center px-4 pt-20 z-10">
+        <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-16 items-center w-full">
+          {/* Left Column */}
+          <div className="text-center lg:text-left flex flex-col items-center lg:items-start">
+            <motion.div 
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="inline-flex items-center gap-2 px-4 py-1.5 bg-white/5 border border-white/10 rounded-full mb-8"
+            >
+              <span className="w-1.5 h-1.5 bg-amber-400 rounded-full animate-pulse" />
+              <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-amber-400/80">Quito, Ecuador · Snacks Premium</span>
+            </motion.div>
 
-        <motion.div 
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.05 }}
-          className="flex items-center gap-3 justify-center mb-8"
-        >
-          <div className="flex -space-x-3">
-            <div className="w-8 h-8 rounded-full bg-purple-600/40 border-2 border-purple-500 flex items-center justify-center text-sm shadow-lg z-30">🍓</div>
-            <div className="w-8 h-8 rounded-full bg-purple-600/40 border-2 border-purple-500 flex items-center justify-center text-sm shadow-lg z-20">🥭</div>
-            <div className="w-8 h-8 rounded-full bg-purple-600/40 border-2 border-purple-500 flex items-center justify-center text-sm shadow-lg z-10">🍉</div>
+            <motion.div 
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.05 }}
+              className="flex items-center gap-3 justify-center mb-8"
+            >
+              <div className="flex -space-x-3">
+                <div className="w-8 h-8 rounded-full bg-purple-600/40 border-2 border-purple-500 flex items-center justify-center text-sm shadow-lg z-30">🍓</div>
+                <div className="w-8 h-8 rounded-full bg-purple-600/40 border-2 border-purple-500 flex items-center justify-center text-sm shadow-lg z-20">🥭</div>
+                <div className="w-8 h-8 rounded-full bg-purple-600/40 border-2 border-purple-500 flex items-center justify-center text-sm shadow-lg z-10">🍉</div>
+              </div>
+              <div className="text-sm">
+                <span className="font-black text-white">{animatedOrders}</span> <span className="text-white/50">personas ya pidieron su TYANGO</span>
+              </div>
+            </motion.div>
+
+            <motion.h1 
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.1 }}
+              className="text-[2.5rem] leading-[0.9] sm:text-6xl md:text-8xl font-black tracking-tighter mb-8"
+            >
+              FRUTA.<br />
+              <span className="text-purple-500">TU ESTILO.</span>
+            </motion.h1>
+
+            <motion.p 
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.2 }}
+              className="max-w-sm md:max-w-xl text-sm md:text-lg text-white/50 font-medium leading-relaxed mb-12"
+            >
+              Personaliza tu snack de fruta fresca con aderezos picantes y recibe tu TYANGO sellado al vacío. Frescura total, sabor explosivo.
+            </motion.p>
+
+            <motion.div 
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.3 }}
+              className="flex flex-col sm:flex-row gap-4 w-full sm:w-auto px-6 sm:px-0 mb-12"
+            >
+              <motion.a 
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                href="#configurar" 
+                className="w-full sm:w-auto px-10 py-5 bg-white text-black font-black uppercase tracking-widest rounded-full hover:bg-purple-500 hover:text-white transition-all transform text-center"
+              >
+                Empezar Configuración
+              </motion.a>
+              <motion.a 
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                href="#como-funciona" 
+                className="w-full sm:w-auto px-10 py-5 bg-white/5 border border-white/10 font-black uppercase tracking-widest rounded-full hover:bg-white/10 transition-all text-center"
+              >
+                Ver Proceso
+              </motion.a>
+            </motion.div>
+
+            {/* Mobile Fruit Emojis */}
+            <div className="lg:hidden flex justify-center gap-8">
+              {['🍓', '🥭', '🍉'].map((emoji, i) => (
+                <motion.span
+                  key={i}
+                  initial={{ opacity: 0, scale: 0 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  transition={{ 
+                    delay: 0.5 + (i * 0.1),
+                    type: "spring",
+                    stiffness: 260,
+                    damping: 20
+                  }}
+                  className="text-5xl"
+                >
+                  <motion.div
+                    animate={{ y: [0, -20, 0] }}
+                    transition={{ 
+                      repeat: Infinity, 
+                      duration: 2, 
+                      delay: i * 0.2,
+                      ease: "easeInOut"
+                    }}
+                  >
+                    {emoji}
+                  </motion.div>
+                </motion.span>
+              ))}
+            </div>
           </div>
-          <div className="text-sm">
-            <span className="font-black text-white">{animatedOrders}</span> <span className="text-white/50">personas ya pidieron su TYANGO</span>
+
+          {/* Right Column - Product Mockup */}
+          <div className="hidden lg:flex justify-center relative">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.8 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ delay: 0.4, duration: 0.8 }}
+              className="relative w-full max-w-md aspect-square bg-white/5 border border-white/10 rounded-[48px] overflow-hidden flex items-center justify-center shadow-2xl"
+            >
+              {/* Floating Badges */}
+              <motion.div 
+                animate={{ y: [0, -8, 0] }}
+                transition={{ repeat: Infinity, duration: 2, delay: 0 }}
+                className="absolute top-8 left-8 px-4 py-2 bg-green-500/20 border border-green-500/30 rounded-full backdrop-blur-md z-20"
+              >
+                <span className="text-[10px] font-black uppercase tracking-widest text-green-400">100% Fruta Fresca</span>
+              </motion.div>
+
+              <motion.div 
+                animate={{ y: [0, -8, 0] }}
+                transition={{ repeat: Infinity, duration: 2, delay: 0.4 }}
+                className="absolute top-12 right-8 px-4 py-2 bg-purple-500/20 border border-purple-500/30 rounded-full backdrop-blur-md z-20"
+              >
+                <span className="text-[10px] font-black uppercase tracking-widest text-purple-400">Sellado al Vacío</span>
+              </motion.div>
+
+              <motion.div 
+                animate={{ y: [0, -8, 0] }}
+                transition={{ repeat: Infinity, duration: 2, delay: 0.8 }}
+                className="absolute bottom-8 left-1/2 -translate-x-1/2 px-4 py-2 bg-amber-500/20 border border-amber-500/30 rounded-full backdrop-blur-md z-20"
+              >
+                <span className="text-[10px] font-black uppercase tracking-widest text-amber-400">Quito, Ecuador</span>
+              </motion.div>
+
+              {/* Bag Canvas */}
+              <div className="relative z-10 transform scale-150">
+                <canvas 
+                  ref={heroBagCanvasRef}
+                  width={300}
+                  height={300}
+                  className="w-[300px] h-[300px]"
+                />
+              </div>
+
+              {/* Decorative Glow */}
+              <div className="absolute inset-0 bg-gradient-to-tr from-purple-600/10 to-transparent pointer-events-none" />
+            </motion.div>
           </div>
-        </motion.div>
-
-        <motion.h1 
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.1 }}
-          className="text-[2.5rem] leading-[0.9] sm:text-6xl md:text-9xl font-black tracking-tighter mb-8"
-        >
-          FRUTA.<br />
-          <span className="text-purple-500">TU ESTILO.</span>
-        </motion.h1>
-
-        <motion.p 
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.2 }}
-          className="max-w-sm md:max-w-xl text-sm md:text-lg text-white/50 font-medium leading-relaxed mb-12"
-        >
-          Personaliza tu snack de fruta fresca con aderezos picantes y recibe tu TYANGO sellado al vacío. Frescura total, sabor explosivo.
-        </motion.p>
-
-        <motion.div 
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.3 }}
-          className="flex flex-col sm:flex-row gap-4 w-full sm:w-auto px-6 sm:px-0"
-        >
-          <motion.a 
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-            href="#configurar" 
-            className="w-full sm:w-auto px-10 py-5 bg-white text-black font-black uppercase tracking-widest rounded-full hover:bg-purple-500 hover:text-white transition-all transform text-center"
-          >
-            Empezar Configuración
-          </motion.a>
-          <motion.a 
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-            href="#como-funciona" 
-            className="w-full sm:w-auto px-10 py-5 bg-white/5 border border-white/10 font-black uppercase tracking-widest rounded-full hover:bg-white/10 transition-all text-center"
-          >
-            Ver Proceso
-          </motion.a>
-        </motion.div>
+        </div>
 
         <motion.div 
           initial={{ opacity: 0 }}
