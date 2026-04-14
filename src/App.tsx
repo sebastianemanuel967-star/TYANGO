@@ -2335,15 +2335,15 @@ export default function App() {
               initial={{ scale: 0.9, opacity: 0, y: 20 }}
               animate={{ scale: 1, opacity: 1, y: 0 }}
               exit={{ scale: 0.9, opacity: 0, y: 20 }}
-              className="relative w-full max-w-lg bg-[#111] border border-white/10 rounded-[40px] p-6 md:p-10"
+              className="relative w-full max-w-lg bg-[#111] border border-white/10 rounded-3xl md:rounded-[40px] p-5 md:p-10 max-h-[90vh] overflow-y-auto custom-scrollbar"
             >
-              <div className="space-y-8">
+              <div className="space-y-6 md:space-y-8">
                 <div className="flex items-center gap-4">
-                  <span className="flex items-center justify-center w-8 h-8 rounded-full bg-amber-500 text-black text-[10px] font-black">05</span>
-                  <h2 className="text-3xl font-display font-black tracking-tighter text-white">REALIZA TU <span className="text-amber-500">PAGO.</span></h2>
+                  <span className="flex items-center justify-center w-8 h-8 rounded-full bg-amber-500 text-black text-[10px] font-black shrink-0">05</span>
+                  <h2 className="text-2xl md:text-3xl font-display font-black tracking-tighter text-white uppercase">REALIZA TU <span className="text-amber-500">PAGO.</span></h2>
                 </div>
                 
-                <div className="p-6 bg-white/5 border border-white/10 rounded-3xl space-y-6">
+                <div className="p-4 md:p-6 bg-white/5 border border-white/10 rounded-3xl space-y-4 md:space-y-6">
                   <div className="space-y-4">
                     <div className="text-[10px] font-black uppercase tracking-widest text-white/40">Tu WhatsApp (Para tus puntos)</div>
                     <input 
@@ -2420,9 +2420,9 @@ export default function App() {
                   <div className="flex items-center justify-between">
                     <div className="text-[10px] font-black uppercase tracking-widest text-white/40">Monto Total</div>
                     <div className="flex items-baseline text-amber-500">
-                      <span className="text-xl font-black align-super mr-0.5 text-white/60">$</span>
-                      <span className="text-5xl font-black tracking-tighter tabular-nums" style={{ fontVariantNumeric: 'tabular-nums' }}>{intPart}</span>
-                      <span className="text-2xl font-black text-white/60 align-super">.{decPart}</span>
+                      <span className="text-lg md:text-xl font-black align-super mr-0.5 text-white/60">$</span>
+                      <span className="text-4xl md:text-5xl font-black tracking-tighter tabular-nums" style={{ fontVariantNumeric: 'tabular-nums' }}>{intPart}</span>
+                      <span className="text-xl md:text-2xl font-black text-white/60 align-super">.{decPart}</span>
                     </div>
                   </div>
                 </div>
@@ -2437,7 +2437,7 @@ export default function App() {
                   whileHover={{ scale: 1.02 }}
                   whileTap={{ scale: 0.98 }}
                   onClick={finalizeWhatsAppRedirect}
-                  className="w-full py-5 bg-amber-500 hover:bg-amber-400 text-black rounded-full text-xs font-black uppercase tracking-widest transition-all shadow-xl shadow-amber-500/20 flex items-center justify-center gap-3"
+                  className="w-full py-4 md:py-5 bg-amber-500 hover:bg-amber-400 text-black rounded-full text-xs font-black uppercase tracking-widest transition-all shadow-xl shadow-amber-500/20 flex items-center justify-center gap-3"
                 >
                   <MessageCircle size={18} />
                   He realizado el pago
