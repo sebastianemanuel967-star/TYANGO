@@ -44,6 +44,7 @@ import {
 } from "firebase/firestore";
 import { 
   fruits, 
+  fruitColors,
   toppings, 
   sizes, 
   referralCodes, 
@@ -1502,12 +1503,12 @@ export default function App() {
                       onClick={() => toggleFruit(fruit)}
                       className={`group relative p-3 sm:p-4 rounded-3xl border transition-all text-left ${
                         isSelected 
-                          ? "bg-purple-600 border-purple-500 shadow-xl shadow-purple-600/20" 
+                          ? (fruitColors[fruit.id] || "bg-purple-600 border-purple-500") + " shadow-xl" 
                           : "bg-white/5 border-white/5 hover:border-white/20"
                       }`}
                     >
                       <div className="text-3xl sm:text-4xl mb-3 h-10 sm:h-12 flex items-center">{fruit.emoji}</div>
-                      <div className="text-[10px] sm:text-xs font-bold uppercase tracking-wider">{fruit.name}</div>
+                      <div className={`text-[10px] sm:text-xs font-bold uppercase tracking-wider ${isSelected ? 'text-white' : ''}`}>{fruit.name}</div>
                       {isSelected && (
                         <motion.div 
                           initial={{ scale: 0, rotate: -45 }}
