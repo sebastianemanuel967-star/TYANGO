@@ -124,6 +124,18 @@ service cloud.firestore {
       allow update, delete: if isAdmin();
     }
 
+    match /settings/stats {
+      allow read: if true;
+      allow update: if (
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['totalOrders']) &&
+        request.resource.data.totalOrders == resource.data.totalOrders + 1
+      ) || isAdmin();
+      allow create: if (
+        request.resource.data.keys().hasOnly(['totalOrders']) &&
+        request.resource.data.totalOrders == 1
+      ) || isAdmin();
+    }
+
     match /settings/{docId} {
       allow read: if true;
       allow write: if isAdmin();

@@ -278,8 +278,10 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    const unsub = onSnapshot(collection(db, "orders"), (snap) => {
-      setTotalOrders(124 + snap.size);
+    const unsub = onSnapshot(doc(db, "settings", "stats"), (docSnap) => {
+      if (docSnap.exists()) {
+        setTotalOrders(124 + (docSnap.data().totalOrders || 0));
+      }
     });
     return () => unsub();
   }, []);
@@ -769,6 +771,15 @@ export default function App() {
         status: "pending",
         phone: userPhone
       });
+
+      // Update global stats counter
+      try {
+        await setDoc(doc(db, "settings", "stats"), {
+          totalOrders: increment(1)
+        }, { merge: true });
+      } catch (statErr) {
+        console.error("Error updating stats:", statErr);
+      }
 
       // Award Tyango Points (1 point per $1 spent)
       const earnedPoints = Math.floor(newOrder.total);
