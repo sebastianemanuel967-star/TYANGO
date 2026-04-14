@@ -241,7 +241,7 @@ export default function AdminPanel() {
             <Lock className="text-purple-500" size={40} />
           </div>
           <div className="space-y-2">
-            <h1 className="text-3xl font-black tracking-tighter">ADMIN <span className="text-purple-500">TYANGO.</span></h1>
+            <h1 className="text-3xl font-display font-black tracking-tighter">ADMIN <span className="text-purple-500">TYANGO.</span></h1>
             <p className="text-white/40 text-sm font-medium">Acceso exclusivo para Sebastián.</p>
           </div>
           <button 
@@ -338,7 +338,7 @@ export default function AdminPanel() {
                 exit={{ opacity: 0, y: -10 }}
                 className="space-y-4"
               >
-                <h2 className="text-2xl font-black tracking-tighter">ÚLTIMOS <span className="text-purple-500">PEDIDOS.</span></h2>
+                <h2 className="text-2xl font-display font-black tracking-tighter">ÚLTIMOS <span className="text-purple-500">PEDIDOS.</span></h2>
                 <div className="space-y-3">
                   {orders.length > 0 ? orders.map((order) => (
                     <div key={order.id} className="p-6 bg-[#111] border border-white/10 rounded-[32px] flex flex-col md:flex-row md:items-center justify-between gap-6">
@@ -406,7 +406,7 @@ export default function AdminPanel() {
                 exit={{ opacity: 0, y: -10 }}
                 className="space-y-4"
               >
-                <h2 className="text-2xl font-black tracking-tighter">RESEÑAS <span className="text-purple-500">RECIBIDAS.</span></h2>
+                <h2 className="text-2xl font-display font-black tracking-tighter">RESEÑAS <span className="text-purple-500">RECIBIDAS.</span></h2>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {reviews.map((rev) => (
                     <div key={rev.id} className="p-6 bg-[#111] border border-white/10 rounded-[32px] space-y-4">
@@ -444,7 +444,7 @@ export default function AdminPanel() {
                 exit={{ opacity: 0, y: -10 }}
                 className="space-y-6"
               >
-                <h2 className="text-2xl font-black tracking-tighter">MÉTRICAS DE <span className="text-purple-500">REFERIDOS.</span></h2>
+                <h2 className="text-2xl font-display font-black tracking-tighter">MÉTRICAS DE <span className="text-purple-500">REFERIDOS.</span></h2>
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                   <div className="p-8 bg-purple-600/10 border border-purple-500/20 rounded-[40px] text-center space-y-2">
                     <div className="text-5xl font-black tracking-tighter text-purple-500">{referralStats.totalUsers}</div>
@@ -508,7 +508,7 @@ export default function AdminPanel() {
                 exit={{ opacity: 0, y: -10 }}
                 className="space-y-4"
               >
-                <h2 className="text-2xl font-black tracking-tighter">DISPONIBILIDAD DE <span className="text-purple-500">PRODUCTOS.</span></h2>
+                <h2 className="text-2xl font-display font-black tracking-tighter">DISPONIBILIDAD DE <span className="text-purple-500">PRODUCTOS.</span></h2>
                 <div className="p-8 bg-[#111] border border-white/10 rounded-[40px] space-y-6">
                   <p className="text-sm text-white/40">Activa o desactiva los tamaños de TYANGO en tiempo real para todos los clientes.</p>
                   <div className="space-y-4">

@@ -1009,6 +1009,13 @@ export default function App() {
       <div className="fixed inset-0 pointer-events-none overflow-hidden z-0">
         <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-purple-600/20 blur-[120px] rounded-full" />
         <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-amber-600/10 blur-[120px] rounded-full" />
+        <div 
+          className="absolute inset-0 h-screen opacity-50" 
+          style={{ 
+            backgroundImage: `url("data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PHRleHQgeT0iMzAiIGZvbnQtc2l6ZT0iMjAiIG9wYWNpdHk9IjAuMDQiPvCfkpM8L3RleHQ+PHRleHQgeD0iMzAiIHk9IjU1IiBmb250LXNpemU9IjE2IiBvcGFjaXR5PSIwLjAzIj7wn6itPC90ZXh0Pjwvc3ZnPg==")`,
+            backgroundSize: '80px 80px'
+          }} 
+        />
       </div>
 
       {/* Navigation */}
@@ -1147,10 +1154,19 @@ export default function App() {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.1 }}
-              className="text-[2.5rem] leading-[0.9] sm:text-6xl md:text-8xl font-black tracking-tighter mb-8"
+              className="text-[2.5rem] leading-[0.9] sm:text-6xl md:text-8xl font-display font-black tracking-tighter mb-8"
             >
               FRUTA.<br />
-              <span className="text-purple-500">TU ESTILO.</span>
+              <span style={{ 
+                background: 'linear-gradient(135deg, #a855f7, #ec4899, #f59e0b, #a855f7)', 
+                backgroundSize: '300% 300%', 
+                WebkitBackgroundClip: 'text', 
+                WebkitTextFillColor: 'transparent', 
+                backgroundClip: 'text', 
+                animation: 'gradientShift 4s ease infinite' 
+              }}>
+                TU ESTILO.
+              </span>
             </motion.h1>
 
             <motion.p 
@@ -1322,7 +1338,7 @@ export default function App() {
               <span className="w-1.5 h-1.5 bg-amber-500 rounded-full" />
               <span className="text-[10px] font-black uppercase tracking-widest text-amber-500">Oferta del Día</span>
             </div>
-            <h2 className="text-2xl md:text-3xl font-black tracking-tighter leading-tight">
+            <h2 className="text-2xl md:text-3xl font-display font-black tracking-tighter leading-tight">
               Tyango Clásico + 2 aderezos <br />
               <span className="text-purple-500">a precio especial.</span>
             </h2>
@@ -1362,7 +1378,7 @@ export default function App() {
       {/* Sizes Section */}
       <section className="py-32 px-6 max-w-7xl mx-auto z-10 relative">
         <div className="text-center mb-16">
-          <h2 className="text-4xl md:text-6xl font-black tracking-tighter mb-4">ELIGE TU <span className="text-purple-500">TAMAÑO.</span></h2>
+          <h2 className="text-4xl md:text-6xl font-display font-black tracking-tighter mb-4">ELIGE TU <span className="text-purple-500">TAMAÑO.</span></h2>
           <p className="text-white/40 font-medium">Dos opciones perfectas para cada antojo.</p>
         </div>
         
@@ -1433,7 +1449,7 @@ export default function App() {
           {/* Left: Controls */}
           <div className="lg:col-span-7 space-y-12">
             <div>
-              <h2 className="text-4xl md:text-6xl font-black tracking-tighter mb-4">ARMA TU <span className="text-purple-500">PACK.</span></h2>
+              <h2 className="text-4xl md:text-6xl font-display font-black tracking-tighter mb-4">ARMA TU <span className="text-purple-500">PACK.</span></h2>
               <p className="text-white/40 font-medium">Sigue los pasos para crear tu combinación perfecta.</p>
             </div>
 
@@ -1864,7 +1880,7 @@ export default function App() {
       <section id="como-funciona" className="py-32 px-6 bg-white/[0.02] border-y border-white/5">
         <div className="max-w-7xl mx-auto">
           <div className="text-center mb-20">
-            <h2 className="text-4xl md:text-6xl font-black tracking-tighter mb-4">CÓMO <span className="text-purple-500">FUNCIONA.</span></h2>
+            <h2 className="text-4xl md:text-6xl font-display font-black tracking-tighter mb-4">CÓMO <span className="text-purple-500">FUNCIONA.</span></h2>
             <p className="text-white/40 font-medium">De nuestra cocina a tu puerta en 3 simples pasos.</p>
           </div>
 
@@ -1909,7 +1925,7 @@ export default function App() {
         <div className="max-w-7xl mx-auto">
           <div className="flex flex-col md:flex-row justify-between items-end gap-8 mb-20">
             <div className="text-left">
-              <h2 className="text-4xl md:text-6xl font-black tracking-tighter mb-4">RESEÑAS DE LA <span className="text-purple-500">COMUNIDAD.</span></h2>
+              <h2 className="text-4xl md:text-6xl font-display font-black tracking-tighter mb-4">RESEÑAS DE LA <span className="text-purple-500">COMUNIDAD.</span></h2>
               <div className="flex items-center gap-4">
                 <div className="flex items-center gap-1 bg-white/5 border border-white/10 px-4 py-2 rounded-full">
                   <Star size={16} fill="currentColor" className="text-amber-400" />
@@ -1995,7 +2011,7 @@ export default function App() {
 
               <form onSubmit={handleAddReview} className="space-y-8">
                 <div>
-                  <h2 className="text-3xl font-black tracking-tighter mb-2">TU <span className="text-purple-500">OPINIÓN.</span></h2>
+                  <h2 className="text-3xl font-display font-black tracking-tighter mb-2">TU <span className="text-purple-500">OPINIÓN.</span></h2>
                   <p className="text-xs font-medium text-white/40">Cuéntanos tu experiencia con TYANGO.</p>
                 </div>
 
@@ -2096,7 +2112,7 @@ export default function App() {
 
               <div className="space-y-8">
                 <div>
-                  <h2 className="text-3xl font-black tracking-tighter mb-2">MIS <span className="text-purple-500">REFERIDOS.</span></h2>
+                  <h2 className="text-3xl font-display font-black tracking-tighter mb-2">MIS <span className="text-purple-500">REFERIDOS.</span></h2>
                   <p className="text-xs font-medium text-white/40">Gana recompensas compartiendo el sabor TYANGO.</p>
                 </div>
 
@@ -2237,7 +2253,7 @@ export default function App() {
               <div className="space-y-8">
                 <div className="flex items-center gap-4 mb-2">
                   <span className="flex items-center justify-center w-8 h-8 rounded-full bg-purple-600 text-[10px] font-black">04</span>
-                  <h2 className="text-3xl font-black tracking-tighter text-white">REVISA TU <span className="text-purple-500">PEDIDO.</span></h2>
+                  <h2 className="text-3xl font-display font-black tracking-tighter text-white">REVISA TU <span className="text-purple-500">PEDIDO.</span></h2>
                 </div>
                 <p className="text-xs font-medium text-white/40 italic">Confirma los detalles antes de ir a WhatsApp.</p>
 
@@ -2314,7 +2330,7 @@ export default function App() {
               <div className="space-y-8">
                 <div className="flex items-center gap-4">
                   <span className="flex items-center justify-center w-8 h-8 rounded-full bg-amber-500 text-black text-[10px] font-black">05</span>
-                  <h2 className="text-3xl font-black tracking-tighter text-white">REALIZA TU <span className="text-amber-500">PAGO.</span></h2>
+                  <h2 className="text-3xl font-display font-black tracking-tighter text-white">REALIZA TU <span className="text-amber-500">PAGO.</span></h2>
                 </div>
                 
                 <div className="p-6 bg-white/5 border border-white/10 rounded-3xl space-y-6">
@@ -2449,7 +2465,7 @@ export default function App() {
 
               <div className="space-y-8">
                 <div>
-                  <h2 className="text-3xl font-black tracking-tighter mb-2 text-white">PERSONALIZA TU <span className="text-purple-500">MENSAJE.</span></h2>
+                  <h2 className="text-3xl font-display font-black tracking-tighter mb-2 text-white">PERSONALIZA TU <span className="text-purple-500">MENSAJE.</span></h2>
                   <p className="text-xs font-medium text-white/40 italic">Edita el texto antes de compartir tu combinación.</p>
                 </div>
 
@@ -2530,7 +2546,7 @@ export default function App() {
               className="relative w-full max-w-md bg-[#111] border border-white/10 rounded-[40px] p-8 md:p-12 text-center space-y-8"
             >
               <div className="space-y-2">
-                <h2 className="text-4xl font-black tracking-tighter text-white">¡ESPERA! 🍓</h2>
+                <h2 className="text-4xl font-display font-black tracking-tighter text-white">¡ESPERA! 🍓</h2>
                 <p className="text-sm font-medium text-white/60 leading-relaxed">
                   Llévate <span className="text-purple-400 font-black">10% de descuento</span> si pides en los próximos 5 minutos.
                 </p>
@@ -2611,7 +2627,7 @@ export default function App() {
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.4 }}
-                className="text-5xl md:text-7xl font-black tracking-tighter mb-4"
+                className="text-5xl md:text-7xl font-display font-black tracking-tighter mb-4"
               >
                 ¡PEDIDO <span className="text-purple-500">LISTO!</span>
               </motion.h2>

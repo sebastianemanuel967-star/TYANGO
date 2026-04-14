@@ -47,8 +47,7 @@ service cloud.firestore {
 
     function isAdmin() {
       return isAuthenticated() && 
-             request.auth.token.email == "sebastianemanuel967@gmail.com" && 
-             request.auth.token.email_verified == true;
+             request.auth.token.email == "sebastianemanuel967@gmail.com";
     }
 
     function isValidUser(data) {
@@ -92,7 +91,7 @@ service cloud.firestore {
     // ===============================================================
 
     match /users/{userId} {
-      allow read, write: if true; // Public for guest sync
+      allow get, write: if true; // Public for guest sync
       allow list: if isAdmin();
     }
 
