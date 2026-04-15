@@ -95,6 +95,22 @@ interface Review {
 }
 
 // ─── UTILS ───
+const getAvatarColor = (name: string): string => {
+  const charCodeSum = name.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
+  const colors = ['bg-purple-600', 'bg-pink-600', 'bg-amber-500', 'bg-green-600', 'bg-blue-600', 'bg-red-600'];
+  return colors[charCodeSum % colors.length];
+};
+
+const getInitials = (name: string): string => {
+  return name
+    .split(' ')
+    .filter(Boolean)
+    .map((word) => word[0])
+    .join('')
+    .toUpperCase()
+    .substring(0, 2);
+};
+
 const generateUniqueCode = () => {
   const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
   let code = "TYANGO";
@@ -107,6 +123,63 @@ const generateUniqueCode = () => {
 const generateUserId = () => {
   return "USER_" + Math.random().toString(36).substring(2, 11).toUpperCase();
 };
+
+// ─── COMPONENTS ───
+const FruitRain = () => {
+  const fruits = ['🍓', '🥭', '🍉', '🍋', '🍇', '🍑'];
+  return (
+    <div className="fixed inset-0 pointer-events-none z-[299] overflow-hidden">
+      {[...Array(20)].map((_, i) => {
+        const fruit = fruits[Math.floor(Math.random() * fruits.length)];
+        const left = Math.random() * 100;
+        const duration = 1.5 + Math.random() * 1.5;
+        const delay = Math.random();
+        return (
+          <div
+            key={i}
+            className="fixed text-2xl pointer-events-none"
+            style={{
+              left: `${left}%`,
+              top: '-50px',
+              animation: `fruitFall ${duration}s linear ${delay}s infinite`,
+              opacity: 0.8,
+              fontSize: '1.5rem'
+            }}
+          >
+            {fruit}
+          </div>
+        );
+      })}
+    </div>
+  );
+};
+
+const ReviewSkeleton = () => (
+  <div className="p-8 bg-white/5 border border-white/10 rounded-[32px] space-y-6 flex flex-col justify-between">
+    <div className="space-y-6">
+      <div className="flex justify-between items-start">
+        <div className="flex gap-1">
+          {[...Array(5)].map((_, i) => (
+            <div key={i} className="w-3 h-3 animate-pulse bg-white/10 rounded-full" />
+          ))}
+        </div>
+        <div className="w-16 h-2 animate-pulse bg-white/10 rounded-full" />
+      </div>
+      <div className="space-y-2 mt-2">
+        <div className="h-3 w-full animate-pulse bg-white/10 rounded-full" />
+        <div className="h-3 w-4/5 animate-pulse bg-white/10 rounded-full" />
+        <div className="h-3 w-3/5 animate-pulse bg-white/10 rounded-full" />
+      </div>
+    </div>
+    <div className="flex items-center gap-3 pt-4 border-t border-white/5">
+      <div className="w-10 h-10 animate-pulse bg-white/10 rounded-full shrink-0" />
+      <div className="space-y-2">
+        <div className="h-2 w-20 animate-pulse bg-white/10 rounded-full" />
+        <div className="h-2 w-16 animate-pulse bg-white/10 rounded-full" />
+      </div>
+    </div>
+  </div>
+);
 
 // ─── MAIN APP ───
 export default function App() {
@@ -145,11 +218,12 @@ export default function App() {
       rating: 5,
       text: t.text,
       date: new Date().toISOString(),
-      avatar: t.avatar
+      avatar: getInitials(t.name)
     }))
   );
   const [showReviewForm, setShowReviewForm] = useState<boolean>(false);
   const [newReview, setNewReview] = useState({ rating: 5, text: "", name: "" });
+  const [isLoadingReviews, setIsLoadingReviews] = useState<boolean>(true);
 
   // Share Modal State
   const [showShareModal, setShowShareModal] = useState<boolean>(false);
@@ -369,6 +443,7 @@ export default function App() {
   useEffect(() => {
     const q = query(collection(db, "reviews"), orderBy("date", "desc"), limit(20));
     const unsubscribeReviews = onSnapshot(q, (snapshot) => {
+      setIsLoadingReviews(false);
       const fetchedReviews = snapshot.docs.map(doc => ({
         id: doc.id,
         ...doc.data()
@@ -419,7 +494,7 @@ export default function App() {
         rating: newReview.rating,
         text: newReview.text,
         date: new Date().toISOString(),
-        avatar: ["👤", "🥑", "🍓", "🍍", "🥭"][Math.floor(Math.random() * 5)],
+        avatar: getInitials(newReview.name),
         uid: userProfile?.userId || "guest"
       };
 
@@ -1377,6 +1452,65 @@ export default function App() {
         </motion.div>
       </section>
 
+      {/* Features Section */}
+      <section className="py-20 px-6 relative z-10">
+        <div className="max-w-7xl mx-auto">
+          <div className="text-center mb-16">
+            <h2 className="text-4xl md:text-6xl font-display font-black tracking-tighter mb-4">
+              LO QUE HAY <span className="text-purple-500">ADENTRO.</span>
+            </h2>
+          </div>
+
+          <motion.div 
+            initial="hidden"
+            whileInView="visible"
+            viewport={{ once: true }}
+            variants={{
+              visible: { transition: { staggerChildren: 0.1 } }
+            }}
+            className="grid grid-cols-2 md:grid-cols-4 gap-6 max-w-5xl mx-auto mt-16"
+          >
+            {[
+              { 
+                icon: <Leaf className="text-green-400" size={32} />, 
+                title: "Fruta de temporada", 
+                desc: "Cortada al momento, sin procesar" 
+              },
+              { 
+                icon: <Zap className="text-amber-400" size={32} />, 
+                title: "Chamoy artesanal", 
+                desc: "Receta tradicional, sabor auténtico" 
+              },
+              { 
+                icon: <Lock className="text-purple-400" size={32} />, 
+                title: "Sellado al vacío", 
+                desc: "Empaque Doypack, frescura garantizada" 
+              },
+              { 
+                icon: <Star className="text-pink-400" size={32} />, 
+                title: "Sin conservantes", 
+                desc: "Ingredientes 100% naturales" 
+              }
+            ].map((item, i) => (
+              <motion.div
+                key={i}
+                variants={{
+                  hidden: { opacity: 0, y: 20 },
+                  visible: { opacity: 1, y: 0 }
+                }}
+                className="flex flex-col items-center text-center space-y-4"
+              >
+                <div className="w-[72px] h-[72px] bg-white/5 border border-white/10 rounded-3xl flex items-center justify-center mb-2">
+                  {item.icon}
+                </div>
+                <h3 className="text-base font-black uppercase tracking-tight">{item.title}</h3>
+                <p className="text-sm text-white/40 leading-tight">{item.desc}</p>
+              </motion.div>
+            ))}
+          </motion.div>
+        </div>
+      </section>
+
       {/* Sizes Section */}
       <section className="py-32 px-6 max-w-7xl mx-auto z-10 relative">
         <div className="text-center mb-16">
@@ -1500,14 +1634,21 @@ export default function App() {
                       key={fruit.id}
                       whileHover={{ scale: 1.02 }}
                       whileTap={{ scale: 0.98 }}
-                      onClick={() => toggleFruit(fruit)}
                       className={`group relative p-3 sm:p-4 rounded-3xl border transition-all text-left ${
                         isSelected 
                           ? (fruitColors[fruit.id] || "bg-purple-600 border-purple-500") + " shadow-xl" 
                           : "bg-white/5 border-white/5 hover:border-white/20"
                       }`}
                     >
-                      <div className="text-3xl sm:text-4xl mb-3 h-10 sm:h-12 flex items-center">{fruit.emoji}</div>
+                      <motion.span
+                        className="block cursor-pointer"
+                        onClick={() => toggleFruit(fruit)}
+                        whileHover={{ rotate: [0, -8, 8, -5, 5, 0], transition: { duration: 0.4 } }}
+                        animate={isSelected ? { scale: [1, 1.4, 0.9, 1.1, 1] } : { scale: 1 }}
+                        transition={{ duration: 0.4 }}
+                      >
+                        <div className="text-3xl sm:text-4xl mb-3 h-10 sm:h-12 flex items-center">{fruit.emoji}</div>
+                      </motion.span>
                       <div className={`text-[10px] sm:text-xs font-bold uppercase tracking-wider ${isSelected ? 'text-white' : ''}`}>{fruit.name}</div>
                       {isSelected && (
                         <motion.div 
@@ -1539,14 +1680,21 @@ export default function App() {
                       key={topping.id}
                       whileHover={{ scale: 1.02 }}
                       whileTap={{ scale: 0.98 }}
-                      onClick={() => toggleTopping(topping)}
                       className={`relative p-4 rounded-3xl border transition-all text-left ${
                         isSelected 
                           ? "bg-amber-500 border-amber-400 shadow-xl shadow-amber-500/20 text-black" 
                           : "bg-white/5 border-white/5 hover:border-white/20"
                       }`}
                     >
-                      <div className="text-3xl mb-2 h-10 flex items-center">{topping.emoji}</div>
+                      <motion.span
+                        className="block cursor-pointer"
+                        onClick={() => toggleTopping(topping)}
+                        whileHover={{ y: [0, -4, 0], transition: { duration: 0.3, repeat: Infinity } }}
+                        animate={isSelected ? { rotate: [0, 10, -10, 0] } : { rotate: 0 }}
+                        transition={isSelected ? { repeat: Infinity, duration: 2, repeatDelay: 1 } : {}}
+                      >
+                        <div className="text-3xl mb-2 h-10 flex items-center">{topping.emoji}</div>
+                      </motion.span>
                       <div className="text-[10px] font-black uppercase tracking-wider">{topping.name}</div>
                       {isSelected && (
                         <motion.div 
@@ -1927,11 +2075,14 @@ export default function App() {
       </section>
 
       {/* Testimonials / Reviews Section */}
-      <section id="resenas" className="py-32 px-6">
+      <section id="resenas" className="py-32 px-6 relative z-10">
         <div className="max-w-7xl mx-auto">
           <div className="flex flex-col md:flex-row justify-between items-end gap-8 mb-20">
-            <div className="text-left">
-              <h2 className="text-4xl md:text-6xl font-display font-black tracking-tighter mb-4">RESEÑAS DE LA <span className="text-purple-500">COMUNIDAD.</span></h2>
+            <div className="text-left max-w-2xl">
+              <h2 className="text-3xl md:text-5xl font-display font-black tracking-tighter leading-tight mb-4 text-white drop-shadow-xl">
+                RESEÑAS DE LA <br />
+                <span className="text-purple-500">COMUNIDAD.</span>
+              </h2>
               <div className="flex items-center gap-4">
                 <div className="flex items-center gap-1 bg-white/5 border border-white/10 px-4 py-2 rounded-full">
                   <Star size={16} fill="currentColor" className="text-amber-400" />
@@ -1952,43 +2103,49 @@ export default function App() {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            <AnimatePresence mode="popLayout">
-              {reviews.map((rev) => (
-                <motion.div 
-                  key={rev.id}
-                  layout
-                  initial={{ opacity: 0, scale: 0.9 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  className="p-8 bg-white/5 border border-white/10 rounded-[32px] space-y-6 flex flex-col justify-between"
-                >
-                  <div className="space-y-6">
-                    <div className="flex justify-between items-start">
-                      <div className="flex gap-1">
-                        {[...Array(5)].map((_, j) => (
-                          <Star 
-                            key={j} 
-                            size={12} 
-                            fill={j < rev.rating ? "currentColor" : "none"} 
-                            className={j < rev.rating ? "text-amber-400" : "text-white/10"} 
-                          />
-                        ))}
+            {isLoadingReviews ? (
+              Array(3).fill(0).map((_, i) => <ReviewSkeleton key={i} />)
+            ) : (
+              <AnimatePresence mode="popLayout">
+                {reviews.map((rev) => (
+                  <motion.div 
+                    key={rev.id}
+                    layout
+                    initial={{ opacity: 0, scale: 0.9 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    className="p-8 bg-white/5 border border-white/10 rounded-[32px] space-y-6 flex flex-col justify-between"
+                  >
+                    <div className="space-y-6">
+                      <div className="flex justify-between items-start">
+                        <div className="flex gap-1">
+                          {[...Array(5)].map((_, j) => (
+                            <Star 
+                              key={j} 
+                              size={12} 
+                              fill={j < rev.rating ? "currentColor" : "none"} 
+                              className={j < rev.rating ? "text-amber-400" : "text-white/10"} 
+                            />
+                          ))}
+                        </div>
+                        <span className="text-[8px] font-bold uppercase tracking-widest text-white/20">
+                          {new Date(rev.date).toLocaleDateString()}
+                        </span>
                       </div>
-                      <span className="text-[8px] font-bold uppercase tracking-widest text-white/20">
-                        {new Date(rev.date).toLocaleDateString()}
-                      </span>
+                      <p className="text-sm font-medium leading-relaxed text-white/70 italic">"{rev.text}"</p>
                     </div>
-                    <p className="text-sm font-medium leading-relaxed text-white/70 italic">"{rev.text}"</p>
-                  </div>
-                  <div className="flex items-center gap-3 pt-4 border-t border-white/5">
-                    <div className="text-2xl">{rev.avatar}</div>
-                    <div>
-                      <div className="text-[10px] font-black uppercase tracking-widest">{rev.name}</div>
-                      <div className="text-[8px] font-bold uppercase tracking-widest text-white/30">Cliente Verificado</div>
+                    <div className="flex items-center gap-3 pt-4 border-t border-white/5">
+                      <div className={"w-10 h-10 rounded-full flex items-center justify-center text-xs font-black text-white shrink-0 " + getAvatarColor(rev.name)}>
+                        {rev.avatar}
+                      </div>
+                      <div>
+                        <div className="text-[10px] font-black uppercase tracking-widest">{rev.name}</div>
+                        <div className="text-[8px] font-bold uppercase tracking-widest text-white/30">Cliente Verificado</div>
+                      </div>
                     </div>
-                  </div>
-                </motion.div>
-              ))}
-            </AnimatePresence>
+                  </motion.div>
+                ))}
+              </AnimatePresence>
+            )}
           </div>
         </div>
       </section>
@@ -2080,16 +2237,78 @@ export default function App() {
       </AnimatePresence>
 
       {/* Footer */}
-      <footer className="py-20 px-6 border-t border-white/5">
-        <div className="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-center gap-12 text-center md:text-left">
-          <div>
-            <div className="text-3xl font-black tracking-tighter mb-2">TYANGO</div>
-            <p className="text-[10px] font-bold uppercase tracking-widest text-white/20">Quito, Ecuador · 2025</p>
+      <footer className="py-24 px-6 border-t border-white/5 bg-black/20 relative overflow-hidden">
+        <div className="max-w-7xl mx-auto">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-12 items-start">
+            {/* Col 1: Brand */}
+            <div className="space-y-6">
+              <div>
+                <div className="text-4xl font-black tracking-tighter mb-2">TYANGO</div>
+                <p className="text-sm font-medium text-white/40">Fruta fresca, sabor explosivo.</p>
+              </div>
+              
+              <div className="relative">
+                <svg width="120" height="40" viewBox="0 0 120 40">
+                  <path 
+                    d="M0,40 L30,10 L50,20 L70,5 L90,25 L120,40 Z" 
+                    fill="none"
+                    className="fill-purple-600/15 stroke-purple-500/30"
+                    strokeWidth="1"
+                  />
+                  <motion.circle 
+                    cx="90" cy="25" r="2" 
+                    className="fill-amber-500"
+                    animate={{ opacity: [0.2, 1, 0.2] }}
+                    transition={{ duration: 1.5, repeat: Infinity }}
+                  />
+                  <text x="94" y="28" className="text-[6px] fill-white/20 font-black uppercase tracking-widest">Calderón</text>
+                </svg>
+              </div>
+            </div>
+
+            {/* Col 2: Navigation */}
+            <div className="space-y-6">
+              <h4 className="text-[10px] font-black uppercase tracking-widest text-white/20">Explorar</h4>
+              <ul className="space-y-4">
+                <li><button onClick={() => { setSelectionMode('individual'); document.getElementById('configurar')?.scrollIntoView({ behavior: 'smooth' }); }} className="text-xs font-bold text-white/60 hover:text-white transition-colors cursor-pointer">Individual</button></li>
+                <li><button onClick={() => { setSelectionMode('mix'); document.getElementById('configurar')?.scrollIntoView({ behavior: 'smooth' }); }} className="text-xs font-bold text-white/60 hover:text-white transition-colors cursor-pointer">TYANGO Mix</button></li>
+                <li><button onClick={() => document.getElementById('reviews')?.scrollIntoView({ behavior: 'smooth' })} className="text-xs font-bold text-white/60 hover:text-white transition-colors cursor-pointer">Reseñas</button></li>
+                <li><button onClick={() => window.location.href = '/admin'} className="text-xs font-bold text-white/60 hover:text-white transition-colors cursor-pointer">Admin Panel</button></li>
+              </ul>
+            </div>
+
+            {/* Col 3: Social */}
+            <div className="space-y-6">
+              <h4 className="text-[10px] font-black uppercase tracking-widest text-white/20">Síguenos</h4>
+              <div className="flex gap-4">
+                {[
+                  { icon: <Instagram size={24} />, href: "https://www.instagram.com/tyango_ec/" },
+                  { icon: <MessageCircle size={24} />, href: "https://wa.me/message/HXXJ4PZHNIAQE1" },
+                  { icon: <Share2 size={24} />, href: "https://www.tiktok.com/@tyango_ec" }
+                ].map((social, i) => (
+                  <motion.a
+                    key={i}
+                    whileHover={{ y: -5, scale: 1.1 }}
+                    href={social.href}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="w-10 h-10 rounded-full bg-white/5 border border-white/10 flex items-center justify-center text-white/60 hover:text-white hover:bg-white/10 transition-all"
+                  >
+                    {social.icon}
+                  </motion.a>
+                ))}
+              </div>
+            </div>
           </div>
-          <div className="flex flex-wrap justify-center gap-6 md:gap-8">
-            <motion.a whileHover={{ y: -2 }} href="https://www.instagram.com/tyango_ec/" target="_blank" rel="noopener noreferrer" className="text-[10px] font-black uppercase tracking-widest text-white/40 hover:text-white transition-colors">Instagram</motion.a>
-            <motion.a whileHover={{ y: -2 }} href="https://www.tiktok.com/@tyango_ec" target="_blank" rel="noopener noreferrer" className="text-[10px] font-black uppercase tracking-widest text-white/40 hover:text-white transition-colors">TikTok</motion.a>
-            <motion.a whileHover={{ y: -2 }} href="https://wa.me/message/HXXJ4PZHNIAQE1" target="_blank" rel="noopener noreferrer" className="text-[10px] font-black uppercase tracking-widest text-white/40 hover:text-white transition-colors">WhatsApp</motion.a>
+
+          <div className="mt-20 pt-8 border-t border-white/5 flex flex-col md:flex-row justify-between items-center gap-4">
+            <p className="text-[10px] font-bold uppercase tracking-widest text-white/20">
+              © 2025 TYANGO · Hecho con 🍓 en Quito
+            </p>
+            <div className="flex gap-6">
+              <span className="text-[8px] font-bold uppercase tracking-widest text-white/10">Términos y Condiciones</span>
+              <span className="text-[8px] font-bold uppercase tracking-widest text-white/10">Privacidad</span>
+            </div>
           </div>
         </div>
       </footer>
@@ -2107,7 +2326,7 @@ export default function App() {
               initial={{ scale: 0.9, opacity: 0, y: 20 }}
               animate={{ scale: 1, opacity: 1, y: 0 }}
               exit={{ scale: 0.9, opacity: 0, y: 20 }}
-              className="relative w-full max-w-lg bg-[#111] border border-white/10 rounded-3xl md:rounded-[40px] p-6 md:p-10 overflow-y-auto max-h-[90vh]"
+              className="relative w-full max-w-lg bg-[#111] border border-white/10 rounded-3xl md:rounded-[40px] p-6 md:p-10 overflow-y-auto max-h-[90vh] custom-scroll"
             >
               <button 
                 onClick={() => setShowReferralDashboard(false)}
@@ -2247,7 +2466,7 @@ export default function App() {
               initial={{ scale: 0.9, opacity: 0, y: 20 }}
               animate={{ scale: 1, opacity: 1, y: 0 }}
               exit={{ scale: 0.9, opacity: 0, y: 20 }}
-              className="relative w-full max-w-lg bg-[#111] border border-white/10 rounded-3xl md:rounded-[40px] p-6 md:p-10 max-h-[90vh] overflow-y-auto"
+              className="relative w-full max-w-lg bg-[#111] border border-white/10 rounded-3xl md:rounded-[40px] p-6 md:p-10 max-h-[90vh] overflow-y-auto custom-scroll"
             >
               <button 
                 onClick={() => setShowReviewModal(false)}
@@ -2335,7 +2554,7 @@ export default function App() {
               initial={{ scale: 0.9, opacity: 0, y: 20 }}
               animate={{ scale: 1, opacity: 1, y: 0 }}
               exit={{ scale: 0.9, opacity: 0, y: 20 }}
-              className="relative w-full max-w-lg bg-[#111] border border-white/10 rounded-3xl md:rounded-[40px] p-5 md:p-10 max-h-[90vh] overflow-y-auto custom-scrollbar"
+              className="relative w-full max-w-lg bg-[#111] border border-white/10 rounded-3xl md:rounded-[40px] p-5 md:p-10 max-h-[90vh] overflow-y-auto custom-scroll"
             >
               <div className="space-y-6 md:space-y-8">
                 <div className="flex items-center gap-4">
@@ -2623,6 +2842,7 @@ export default function App() {
             exit={{ opacity: 0 }}
             className="fixed inset-0 z-[300] flex items-center justify-center bg-black/90 backdrop-blur-2xl"
           >
+            <FruitRain />
             <motion.div
               initial={{ scale: 0.5, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
