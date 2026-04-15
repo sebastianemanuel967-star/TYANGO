@@ -193,7 +193,8 @@ export default function App() {
   const [referralInput, setReferralInput] = useState<string>("");
   const [appliedReferralCode, setAppliedReferralCode] = useState<string | null>(null);
   const [isLoyaltyRewardApplied, setIsLoyaltyRewardApplied] = useState(false);
-  const LOYALTY_THRESHOLD = 50;
+  const [loyaltyFreeTopping, setLoyaltyFreeTopping] = useState(false);
+  const LOYALTY_THRESHOLD = 30;
   const [showToast, setShowToast] = useState<boolean>(false);
   const [toastMsg, setToastMsg] = useState<string>("");
   const bagCanvasRef = useRef<HTMLCanvasElement>(null);
@@ -665,9 +666,18 @@ export default function App() {
     }
 
     // 1. Check hardcoded codes
-    if (referralCodes[raw] !== undefined) {
-      setDiscountPct(referralCodes[raw]);
-      setReferralMsg({ text: `✓ Código ${raw} aplicado — ${referralCodes[raw]}% off`, type: "ok" });
+    const hardcoded = referralCodes[raw];
+    if (hardcoded) {
+      if (hardcoded.applyTo === 'grande' && selectedSize === 'mini') {
+        setReferralMsg({ 
+          text: "Este código aplica solo para el Grande ($2.50). ¡Cámbialo y aprovecha!", 
+          type: "err" 
+        });
+        return;
+      }
+      
+      setDiscountPct(hardcoded.value);
+      setReferralMsg({ text: `✓ Código ${raw} aplicado — ${hardcoded.description}`, type: "ok" });
       setIsReferralApplied(true);
       setTimeout(() => setIsReferralApplied(false), 2000);
       return;
@@ -682,6 +692,14 @@ export default function App() {
     // 3. Check if it's a valid generated code (TYANGO + 4 chars)
     const isGeneratedPattern = /^TYANGO[A-Z0-9]{4}$/.test(raw);
     if (isGeneratedPattern) {
+      if (selectedSize === 'mini') {
+        setReferralMsg({ 
+          text: "El código de referido aplica al Grande — te recomendamos cambiarlo para aprovechar mejor.", 
+          type: "err" 
+        });
+        return;
+      }
+
       try {
         const codeRef = doc(db, "referral_codes", raw);
         const codeSnap = await getDoc(codeRef);
@@ -696,9 +714,9 @@ export default function App() {
           }
 
           setIsLoyaltyRewardApplied(false);
-          setDiscountPct(15);
+          setDiscountPct(10);
           setAppliedReferralCode(raw);
-          setReferralMsg({ text: `✓ Código ${raw} aplicado — 15% off`, type: "ok" });
+          setReferralMsg({ text: `✓ Código ${raw} aplicado — 10% off en Grande`, type: "ok" });
           setIsReferralApplied(true);
           setTimeout(() => setIsReferralApplied(false), 2000);
           return;
@@ -706,8 +724,8 @@ export default function App() {
           // Fallback: if it matches pattern but not in DB yet (maybe offline or new), 
           // we still allow it to ensure "it works" for the user.
           setIsLoyaltyRewardApplied(false);
-          setDiscountPct(15);
-          setReferralMsg({ text: `✓ Código ${raw} aplicado — 15% off`, type: "ok" });
+          setDiscountPct(10);
+          setReferralMsg({ text: `✓ Código ${raw} aplicado — 10% off en Grande`, type: "ok" });
           setIsReferralApplied(true);
           setTimeout(() => setIsReferralApplied(false), 2000);
           return;
@@ -716,8 +734,8 @@ export default function App() {
         console.error("Error verifying code:", e);
         // Fallback on error
         setIsLoyaltyRewardApplied(false);
-        setDiscountPct(15);
-        setReferralMsg({ text: `✓ Código ${raw} aplicado — 15% off`, type: "ok" });
+        setDiscountPct(10);
+        setReferralMsg({ text: `✓ Código ${raw} aplicado — 10% off en Grande`, type: "ok" });
         setIsReferralApplied(true);
         setTimeout(() => setIsReferralApplied(false), 2000);
         return;
@@ -734,10 +752,10 @@ export default function App() {
       return;
     }
 
-    setDiscountPct(50);
+    setLoyaltyFreeTopping(true);
     setIsLoyaltyRewardApplied(true);
     setAppliedReferralCode(null);
-    setReferralMsg({ text: "✓ ¡Puntos canjeados! 50% de descuento aplicado.", type: "ok" });
+    setReferralMsg({ text: "✓ ¡Aderezo gratis desbloqueado! Elige el que quieras sin costo adicional", type: "ok" });
     setIsReferralApplied(true);
     setTimeout(() => setIsReferralApplied(false), 2000);
   };
@@ -764,7 +782,7 @@ export default function App() {
     setShowOrderSuccessAnimation(true);
     
     const sz = dynamicSizes[selectedSize];
-    const base = sz.price * quantity;
+    const base = bundlePrice !== null ? bundlePrice : (sz.price * quantity);
     const disc = discountPct > 0 ? base * (discountPct / 100) : 0;
     const total = (base - disc).toFixed(2);
     const tops = selectedToppings.length > 0 ? selectedToppings.map((t) => t.name).join(", ") : "Sin aderezos";
@@ -773,6 +791,9 @@ export default function App() {
     const deliveryTimeLine = deliveryTime ? `⏰ Horario preferido: ${deliveryTime}\n` : "";
     const deliveryAddressLine = `📍 Dirección: ${deliveryAddress || "Por coordinar en chat"}\n`;
     
+    const bundleLine = bundlePrice !== null ? "📦 Pack especial aplicado\n" : "";
+    const loyaltyLine = loyaltyFreeTopping ? "🎁 Aderezo extra GRATIS (canje de puntos)\n" : "";
+
     const msg = encodeURIComponent(
       `¡Hola TYANGO! 🍓 He realizado el pago de mi pedido (${selectionMode.toUpperCase()}):\n\n` +
       `🍎 Frutas: ${fruitNames}\n` +
@@ -781,6 +802,8 @@ export default function App() {
       `🔢 Cantidad: ${quantity} unidades\n` +
       `⚖️ Peso Total: ${sz.weight * quantity}g\n` +
       `💜 Total: $${total}\n` +
+      bundleLine +
+      loyaltyLine +
       deliveryTimeLine +
       deliveryAddressLine +
       `🏦 Pago: Transferencia Banco Pichincha\n` +
@@ -1038,12 +1061,27 @@ export default function App() {
   };
 
   const basePrice = dynamicSizes[selectedSize].price * quantity;
-  const autoDiscountPct = discountPct === 0 
+  
+  // Bundle Pricing Logic
+  let bundlePrice: number | null = null;
+  let bundleBadge: string | null = null;
+  
+  if (quantity === 3 && selectedSize === 'mini') {
+    bundlePrice = 4.00;
+    bundleBadge = "Pack Mini x3 — ahorra $0.50";
+  } else if (quantity === 5 && selectedSize === 'clasico') {
+    bundlePrice = 10.00;
+    bundleBadge = "Pack Grande x5 — uno gratis";
+  }
+
+  const autoDiscountPct = discountPct === 0 && !bundlePrice
     ? (quantity >= 5 ? 10 : (quantity >= 3 ? 5 : 0)) 
     : 0;
   const effectiveDiscountPct = discountPct > 0 ? discountPct : autoDiscountPct;
   const discountAmount = effectiveDiscountPct > 0 ? basePrice * (effectiveDiscountPct / 100) : 0;
-  const totalPrice = (basePrice - discountAmount).toFixed(2);
+  
+  const finalBase = bundlePrice !== null ? bundlePrice : basePrice;
+  const totalPrice = (finalBase - discountAmount).toFixed(2);
   const [intPart, decPart] = totalPrice.split('.');
   const totalWeight = dynamicSizes[selectedSize].weight * quantity;
 
@@ -1718,13 +1756,16 @@ export default function App() {
                 <h3 className="text-sm font-black uppercase tracking-widest">Código de Descuento</h3>
               </div>
               <div className="flex flex-col sm:flex-row gap-3">
-                <input 
-                  type="text" 
-                  value={referralInput}
-                  onChange={(e) => setReferralInput(e.target.value)}
-                  placeholder="Ej: TYANGO10"
-                  className="w-full sm:flex-1 bg-white/5 border border-white/10 rounded-2xl px-6 py-4 text-sm font-bold uppercase tracking-widest focus:outline-none focus:border-purple-500 transition-colors"
-                />
+                <div className="flex-1 relative">
+                  <input 
+                    type="text" 
+                    value={referralInput}
+                    onChange={(e) => setReferralInput(e.target.value)}
+                    placeholder="Código de descuento"
+                    className="w-full bg-white/5 border border-white/10 rounded-2xl px-6 py-4 text-sm font-bold uppercase tracking-widest focus:outline-none focus:border-purple-500 transition-colors"
+                  />
+                  <div className="mt-1 ml-2 text-[9px] text-white/30 italic">Los códigos aplican al tamaño Grande</div>
+                </div>
                 <motion.button 
                   whileHover={{ scale: 1.05 }}
                   whileTap={{ scale: 0.95 }}
@@ -1888,6 +1929,18 @@ export default function App() {
                   </motion.button>
                 </div>
               </div>
+
+              {bundleBadge && (
+                <motion.div 
+                  initial={{ opacity: 0, y: -10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="p-4 bg-purple-500/10 border border-purple-500/20 rounded-[24px] flex items-center justify-center gap-3"
+                >
+                  <span className="text-[10px] font-black uppercase tracking-widest text-purple-400">
+                    {bundleBadge} 🎉
+                  </span>
+                </motion.div>
+              )}
 
               {autoDiscountPct > 0 && (
                 <motion.div 

@@ -63,14 +63,11 @@ export const sizes: Record<string, Size> = {
   premium: { label: "Premium", weight: 150, price: 1.75, isSoldOut: true },
 };
 
-export const referralCodes: Record<string, number> = {
-  TYANGO10: 10,
-  AMIGO15: 15,
-  PROMO20: 20,
-  PRIMERA5: 5,
-  FRUTAS10: 10,
-  QUITO10: 10,
-  OFERTA: 20,
+export const referralCodes: Record<string, { type: 'pct' | 'product' | 'fixed', value: number, applyTo: 'all' | 'grande' | 'mini', description: string }> = {
+  "TYANGO10": { type: 'pct', value: 10, applyTo: 'grande', description: '10% off en Grande' },
+  "BIENVENIDO": { type: 'pct', value: 10, applyTo: 'grande', description: '10% off en Grande — primer pedido' },
+  "INSTAGRAM": { type: 'pct', value: 10, applyTo: 'grande', description: '10% off en Grande — comunidad Instagram' },
+  "AMIGO5": { type: 'pct', value: 5, applyTo: 'all', description: '5% off en cualquier tamaño' },
 };
 
 export const testimonials: Testimonial[] = [
