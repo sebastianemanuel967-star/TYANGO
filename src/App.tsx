@@ -124,6 +124,55 @@ const generateUserId = () => {
   return "USER_" + Math.random().toString(36).substring(2, 11).toUpperCase();
 };
 
+const playSuccessSound = () => {
+  try {
+    const AudioContext = window.AudioContext || (window as any).webkitAudioContext;
+    const ctx = new AudioContext();
+    
+    const playNote = (freq: number, startTime: number, duration: number, volume: number = 0.3) => {
+      const oscillator = ctx.createOscillator();
+      const gainNode = ctx.createGain();
+      oscillator.connect(gainNode);
+      gainNode.connect(ctx.destination);
+      oscillator.frequency.setValueAtTime(freq, startTime);
+      oscillator.type = 'sine';
+      gainNode.gain.setValueAtTime(0, startTime);
+      gainNode.gain.linearRampToValueAtTime(volume, startTime + 0.01);
+      gainNode.gain.exponentialRampToValueAtTime(0.001, startTime + duration);
+      oscillator.start(startTime);
+      oscillator.stop(startTime + duration);
+    };
+    
+    const now = ctx.currentTime;
+    playNote(523.25, now, 0.15, 0.25);        // Do
+    playNote(659.25, now + 0.12, 0.15, 0.25); // Mi
+    playNote(783.99, now + 0.24, 0.15, 0.25); // Sol
+    playNote(1046.5, now + 0.36, 0.4, 0.3);   // Do alta
+    playNote(783.99, now + 0.50, 0.15, 0.2);  // Sol
+    playNote(1046.5, now + 0.62, 0.5, 0.35);  // Do alta larga
+  } catch (e) {
+    console.log('Audio not available');
+  }
+};
+
+const playClickSound = () => {
+  try {
+    const AudioContext = window.AudioContext || (window as any).webkitAudioContext;
+    const ctx = new AudioContext();
+    const now = ctx.currentTime;
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.frequency.setValueAtTime(800, now);
+    osc.frequency.exponentialRampToValueAtTime(1200, now + 0.1);
+    gain.gain.setValueAtTime(0.2, now);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.15);
+    osc.start(now);
+    osc.stop(now + 0.15);
+  } catch(e) {}
+};
+
 // ─── COMPONENTS ───
 const FruitRain = () => {
   const fruits = ['🍓', '🥭', '🍉', '🍋', '🍇', '🍑'];
@@ -199,7 +248,6 @@ export default function App() {
   const [toastMsg, setToastMsg] = useState<string>("");
   const bagCanvasRef = useRef<HTMLCanvasElement>(null);
   const heroBagCanvasRef = useRef<HTMLCanvasElement>(null);
-  const [totalOrders, setTotalOrders] = useState<number>(124);
   const [animatedOrders, setAnimatedOrders] = useState<number>(0);
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [orderHistory, setOrderHistory] = useState<OrderRecord[]>([]);
@@ -233,7 +281,7 @@ export default function App() {
 
   // Quantity State
   const [quantity, setQuantity] = useState<number>(1);
-  const [stockRemaining, setStockRemaining] = useState<number>(15);
+  const [stockRemaining, setStockRemaining] = useState<number>(() => Math.floor(Math.random() * 5) + 28);
   const [userPhone, setUserPhone] = useState<string>("");
   const [isSyncing, setIsSyncing] = useState<boolean>(false);
 
@@ -241,10 +289,10 @@ export default function App() {
     // Simulate stock decreasing slightly over time for urgency
     const interval = setInterval(() => {
       setStockRemaining(prev => {
-        if (prev <= 3) return prev;
-        return Math.random() > 0.7 ? prev - 1 : prev;
+        if (prev <= 10) return prev;
+        return Math.random() > 0.65 ? prev - 1 : prev;
       });
-    }, 30000);
+    }, 45000);
     return () => clearInterval(interval);
   }, []);
 
@@ -357,33 +405,12 @@ export default function App() {
   useEffect(() => {
     const unsub = onSnapshot(doc(db, "settings", "stats"), (docSnap) => {
       if (docSnap.exists()) {
-        setTotalOrders(124 + (docSnap.data().totalOrders || 0));
+        const statsData = docSnap.data();
+        setAnimatedOrders(29 + (statsData.totalOrders || 0));
       }
     });
     return () => unsub();
   }, []);
-
-  useEffect(() => {
-    const duration = 1500;
-    const steps = 60;
-    const stepTime = duration / steps;
-    
-    let current = 0;
-    const target = totalOrders;
-    const increment = target / steps;
-    
-    const timer = setInterval(() => {
-      current += increment;
-      if (current >= target) {
-        setAnimatedOrders(target);
-        clearInterval(timer);
-      } else {
-        setAnimatedOrders(Math.floor(current));
-      }
-    }, stepTime);
-    
-    return () => clearInterval(timer);
-  }, [totalOrders]);
 
   // Initialize Local Profile and Data
   useEffect(() => {
@@ -930,11 +957,11 @@ export default function App() {
 
     // Wait for animation to play before opening WhatsApp
     setTimeout(() => {
+      playSuccessSound();
       setShowOrderSuccessAnimation(false);
       setOrderConfirmed(true);
       setShowPaymentModal(false);
       
-      setTotalOrders(prev => prev + 1);
       setToastMsg(`¡Gracias por tu compra! Tu TYANGO está en camino.`);
       setShowToast(true);
       setTimeout(() => setShowToast(false), 5000);
@@ -1417,7 +1444,7 @@ export default function App() {
       >
         <div className="max-w-7xl mx-auto px-6 grid grid-cols-2 md:grid-cols-4 gap-12">
           {[
-            { label: "Pedidos", value: totalOrders, icon: <ShoppingBag size={20} /> },
+            { label: "Pedidos", value: animatedOrders, icon: <ShoppingBag size={20} /> },
             { label: "Combinaciones", value: "12", icon: <Palette size={20} /> },
             { label: "Frutas", value: fruits.length, icon: <Leaf size={20} /> },
             { label: "Aderezos", value: toppings.length, icon: <Zap size={20} /> }
@@ -1587,33 +1614,36 @@ export default function App() {
           </motion.div>
 
           {/* Clásico Card */}
-          <motion.div 
-            whileHover={{ y: -10 }}
-            className="group p-5 sm:p-8 bg-[#111] border border-white/10 rounded-[48px] flex flex-row sm:flex-col items-center gap-4 sm:gap-0 hover:border-purple-500/50 transition-all"
-          >
-            <div className="w-16 h-16 sm:w-20 sm:h-20 bg-purple-500/10 rounded-2xl sm:rounded-3xl flex items-center justify-center text-purple-500 group-hover:scale-110 transition-transform shrink-0">
-              <Package size={32} className="w-8 h-8 sm:w-10 sm:h-10" />
-            </div>
-            <div className="flex flex-col sm:flex-col items-center space-y-4 sm:space-y-6 flex-1">
-              <div className="space-y-2 text-center">
-                <h3 className="text-3xl font-black tracking-tighter">CLÁSICO</h3>
-                <div className="px-4 py-1 bg-purple-500/10 border border-purple-500/20 rounded-full text-[10px] font-black uppercase tracking-widest text-purple-500">
-                  311 Gramos
-                </div>
+          <div className="relative">
+            <div className="absolute -top-4 left-1/2 -translate-x-1/2 z-10 px-6 py-1.5 bg-purple-600 rounded-full text-[10px] font-black uppercase tracking-widest text-white shadow-lg shadow-purple-600/40 whitespace-nowrap">⭐ Más Elegido</div>
+            <motion.div 
+              whileHover={{ y: -10 }}
+              className="group p-5 sm:p-8 bg-[#111] border-purple-500/50 border-2 rounded-[48px] h-full flex flex-row sm:flex-col items-center gap-4 sm:gap-0 hover:border-purple-500 transition-all"
+            >
+              <div className="w-16 h-16 sm:w-20 sm:h-20 bg-purple-500/10 rounded-2xl sm:rounded-3xl flex items-center justify-center text-purple-500 group-hover:scale-110 transition-transform shrink-0">
+                <Package size={32} className="w-8 h-8 sm:w-10 sm:h-10" />
               </div>
-              <p className="text-sm text-white/40 font-medium text-center hidden sm:block">Nuestra porción estrella. La cantidad perfecta para disfrutar al máximo.</p>
-              <div className="text-2xl sm:text-4xl font-black tracking-tighter text-white">$2.50</div>
-              <motion.a 
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-                href="#configurar"
-                onClick={() => setSelectedSize("clasico")}
-                className="w-full py-3 sm:py-5 bg-purple-600 text-white font-black uppercase tracking-widest rounded-2xl sm:rounded-3xl shadow-xl shadow-purple-600/20 text-center text-[10px] sm:text-xs"
-              >
-                Seleccionar Clásico
-              </motion.a>
-            </div>
-          </motion.div>
+              <div className="flex flex-col sm:flex-col items-center space-y-4 sm:space-y-6 flex-1">
+                <div className="space-y-2 text-center">
+                  <h3 className="text-3xl font-black tracking-tighter">CLÁSICO</h3>
+                  <div className="px-4 py-1 bg-purple-500/10 border border-purple-500/20 rounded-full text-[10px] font-black uppercase tracking-widest text-purple-500">
+                    311 Gramos
+                  </div>
+                </div>
+                <p className="text-sm text-white/40 font-medium text-center hidden sm:block">Nuestra porción estrella. La cantidad perfecta para disfrutar al máximo.</p>
+                <div className="text-2xl sm:text-4xl font-black tracking-tighter text-white">$2.50</div>
+                <motion.a 
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  href="#configurar"
+                  onClick={() => setSelectedSize("clasico")}
+                  className="w-full py-3 sm:py-5 bg-purple-600 text-white font-black uppercase tracking-widest rounded-2xl sm:rounded-3xl shadow-xl shadow-purple-600/20 text-center text-[10px] sm:text-xs"
+                >
+                  Seleccionar Clásico
+                </motion.a>
+              </div>
+            </motion.div>
+          </div>
         </div>
       </section>
 
@@ -1800,7 +1830,7 @@ export default function App() {
                 >
                   <div className="text-center sm:text-left">
                     <div className="text-[10px] font-black uppercase tracking-widest text-purple-400 mb-1">¡Recompensa Disponible!</div>
-                    <div className="text-xs font-bold">Tienes {userProfile.loyaltyPoints} puntos. Canjea {LOYALTY_THRESHOLD} por un 50% de descuento.</div>
+                    <div className="text-xs font-bold">Tienes {userProfile.loyaltyPoints} puntos. Canjea {LOYALTY_THRESHOLD} por un ADEREZO GRATIS.</div>
                   </div>
                   <button 
                     onClick={applyLoyaltyReward}
@@ -1890,9 +1920,12 @@ export default function App() {
                         key === 'premium' ? 'col-span-2 sm:flex-1' : 'flex-1'
                       } ${size.isSoldOut ? "opacity-50 grayscale cursor-not-allowed" : ""}`}
                     >
-                      <span className={size.isSoldOut ? "line-through opacity-50" : ""}>
-                        {size.label} {size.weight}g
-                      </span>
+                      <div className="flex flex-col items-center">
+                        <span className={size.isSoldOut ? "line-through opacity-50" : ""}>
+                          {size.label} {size.weight}g
+                        </span>
+                        {key === 'clasico' && isActive && <span className="text-[10px] mt-0.5">⭐</span>}
+                      </div>
                       {size.isSoldOut && (
                         <span className="absolute inset-0 flex items-center justify-center text-[8px] font-black tracking-[0.2em] text-white bg-black/40 rounded-inherit">
                           AGOTADO
@@ -1902,6 +1935,12 @@ export default function App() {
                   );
                 })}
               </div>
+
+              {selectedSize === 'clasico' && (
+                <p className="text-[9px] text-purple-400/60 italic text-center mt-2">
+                  La mayoría de nuestros clientes eligen el Clásico
+                </p>
+              )}
 
               {/* Quantity Selector */}
               <div className="flex items-center justify-between p-4 bg-white/5 border border-white/10 rounded-[24px]">
@@ -2017,7 +2056,7 @@ export default function App() {
                       >
                         <div className="flex justify-between items-center">
                           <span className="text-[9px] font-black uppercase tracking-widest text-white/40">
-                            Te faltan <span className="text-purple-400">${(5 - parseFloat(totalPrice)).toFixed(2)}</span> para delivery gratis en Calderón
+                            Te faltan <span className="text-purple-400">${(5 - parseFloat(totalPrice)).toFixed(2)}</span> para delivery gratis 🛵
                           </span>
                         </div>
                         <div className="h-1.5 w-full bg-white/5 rounded-full overflow-hidden">
@@ -2053,7 +2092,7 @@ export default function App() {
                           <CheckCircle2 size={14} className="text-green-500" />
                         </motion.div>
                         <span className="text-[9px] font-black uppercase tracking-widest text-green-500">
-                          Calificas para delivery en Calderón ✓
+                          Calificas para delivery gratis 🛵 ✓
                         </span>
                       </motion.div>
                     )}
@@ -2070,11 +2109,42 @@ export default function App() {
                     {orderConfirmed ? "Confirmado" : "Pedir WhatsApp"}
                   </motion.button>
                   
-                  <div className="flex items-center justify-center gap-2 px-4 py-2 bg-amber-500/10 border border-amber-500/20 rounded-xl">
-                    <div className="w-1.5 h-1.5 bg-amber-500 rounded-full animate-ping" />
-                    <span className="text-[9px] font-black uppercase tracking-widest text-amber-500">
-                      ¡Apúrate! Solo quedan {stockRemaining} unidades disponibles hoy
-                    </span>
+                  <div className="space-y-3">
+                    <div className={`flex items-center justify-center gap-2 px-4 py-2 border rounded-xl transition-colors duration-500 ${
+                      stockRemaining > 30 
+                        ? 'bg-amber-500/10 border-amber-500/20 text-amber-500' 
+                        : stockRemaining > 10 
+                          ? 'bg-orange-500/10 border-orange-500/20 text-orange-500' 
+                          : 'bg-red-500/10 border-red-500/20 text-red-500 animate-pulse'
+                    }`}>
+                      <div className={`w-1.5 h-1.5 rounded-full animate-ping ${
+                        stockRemaining > 30 
+                          ? 'bg-amber-500' 
+                          : stockRemaining > 10 
+                            ? 'bg-orange-500' 
+                            : 'bg-red-500'
+                      }`} />
+                      <span className="text-[9px] font-black uppercase tracking-widest">
+                        {stockRemaining > 30 
+                          ? `Solo quedan ${stockRemaining} unidades disponibles hoy` 
+                          : stockRemaining > 10 
+                            ? `⚠️ ¡Quedan solo ${stockRemaining}! Pide antes de que se agoten` 
+                            : `🚨 ¡ÚLTIMAS ${stockRemaining} UNIDADES! Se acaban hoy`}
+                      </span>
+                    </div>
+                    {/* Visual Stock Progress Bar */}
+                    <div className="w-full h-1 bg-white/5 rounded-full overflow-hidden">
+                      <div 
+                        className={`h-full transition-all duration-1000 ${
+                          stockRemaining > 30 
+                            ? 'bg-amber-500' 
+                            : stockRemaining > 10 
+                              ? 'bg-orange-500' 
+                              : 'bg-red-500'
+                        }`}
+                        style={{ width: `${(stockRemaining / 100) * 100}%` }}
+                      />
+                    </div>
                   </div>
                 </div>
               </div>
@@ -2851,6 +2921,7 @@ export default function App() {
                   whileTap={exitCountdown > 0 ? { scale: 0.98 } : {}}
                   disabled={exitCountdown <= 0}
                   onClick={() => {
+                    playClickSound();
                     setDiscountPct(10);
                     setShowExitModal(false);
                     document.getElementById("configurar")?.scrollIntoView({ behavior: "smooth" });
