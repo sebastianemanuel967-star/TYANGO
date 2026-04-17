@@ -41,7 +41,6 @@ export const fruitColors: Record<string, string> = {
   fresa: 'bg-pink-600 border-pink-400 shadow-pink-500/20',
   sandia: 'bg-green-600 border-green-400 shadow-green-500/20',
   pepino: 'bg-emerald-600 border-emerald-400 shadow-emerald-500/20',
-  jicama: 'bg-orange-500 border-orange-400 shadow-orange-500/20',
   pina: 'bg-yellow-500 border-yellow-400 shadow-yellow-500/20',
   melon: 'bg-lime-500 border-lime-400 shadow-lime-500/20',
   manzana: 'bg-red-600 border-red-400 shadow-red-500/20',
@@ -59,7 +58,7 @@ export const toppings: Topping[] = [
 
 export const sizes: Record<string, Size> = {
   mini: { label: "Mini", weight: 155, price: 1.50 },
-  clasico: { label: "Clásico", weight: 311, price: 2.50 },
+  clasico: { label: "Grande", weight: 311, price: 2.50 },
   premium: { label: "Premium", weight: 150, price: 1.75, isSoldOut: true },
 };
 

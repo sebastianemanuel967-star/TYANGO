@@ -26,10 +26,8 @@ const ADMIN_EMAIL = "sebastianemanuel967@gmail.com";
 
 interface Order {
   id: string;
-  items: string;
-  toppings: string;
-  size: string;
-  quantity: number;
+  itemsSummary: string;
+  itemCount: number;
   total: number;
   date: string;
   status: string;
@@ -358,8 +356,8 @@ export default function AdminPanel() {
                             {order.status || 'pending'}
                           </span>
                         </div>
-                        <div className="text-lg font-bold leading-tight">{order.items}</div>
-                        <div className="text-[10px] font-medium text-white/40">Aderezos: {order.toppings}</div>
+                        <div className="text-lg font-bold leading-tight whitespace-pre-line">{order.itemsSummary}</div>
+                        <div className="text-[10px] font-medium text-white/40">Cantidad: {order.itemCount} {order.itemCount === 1 ? 'producto' : 'productos'}</div>
                       </div>
                       <div className="flex items-center gap-8">
                         <div className="text-right">

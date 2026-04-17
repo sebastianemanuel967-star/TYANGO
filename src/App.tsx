@@ -22,7 +22,10 @@ import {
   Package,
   RefreshCw,
   User as UserIcon,
-  Instagram
+  Instagram,
+  Plus,
+  Trash2,
+  Check
 } from "lucide-react";
 import { db } from "./lib/firebase";
 import { 
@@ -71,17 +74,25 @@ interface UserProfile {
   phone?: string;
   referredFriends: string[];
   displayName?: string;
+  tier?: 'Fan' | 'Master' | 'Legend';
+}
+
+interface CartItem {
+  id: string;
+  fruits: Fruit[];
+  toppings: Topping[];
+  size: string;
+  quantity: number;
+  price: number;
 }
 
 interface OrderRecord {
   id: string;
   userId: string;
-  items: string;
-  toppings: string;
-  size: string;
-  quantity: number;
+  itemsSummary: string;
+  itemCount: number;
   total: number;
-  date: any;
+  date: string;
 }
 
 interface Review {
@@ -173,6 +184,118 @@ const playClickSound = () => {
   } catch(e) {}
 };
 
+// ─── PARTICLE SYSTEM ───
+interface Particle {
+  id: number;
+  x: number;
+  y: number;
+  color: string;
+  size: number;
+  vx: number;
+  vy: number;
+}
+
+const ParticleSplash = ({ color, x, y }: { color: string; x: number; y: number }) => {
+  const [particles, setParticles] = useState<Particle[]>([]);
+
+  useEffect(() => {
+    const newParticles = Array.from({ length: 12 }).map((_, i) => ({
+      id: Math.random(),
+      x,
+      y,
+      color,
+      size: Math.random() * 6 + 4,
+      vx: (Math.random() - 0.5) * 15,
+      vy: (Math.random() - 0.5) * 15,
+    }));
+    setParticles(newParticles);
+
+    const timer = setTimeout(() => setParticles([]), 800);
+    return () => clearTimeout(timer);
+  }, [color, x, y]);
+
+  return (
+    <div className="fixed inset-0 pointer-events-none z-[600]">
+      {particles.map(p => (
+        <motion.div
+          key={p.id}
+          initial={{ x: p.x, y: p.y, opacity: 1, scale: 1 }}
+          animate={{ 
+            x: p.x + p.vx * 10, 
+            y: p.y + p.vy * 10, 
+            opacity: 0, 
+            scale: 0 
+          }}
+          transition={{ duration: 0.8, ease: "easeOut" }}
+          className="absolute rounded-full"
+          style={{ 
+            backgroundColor: p.color, 
+            width: p.size, 
+            height: p.size,
+            filter: 'blur(1px)'
+          }}
+        />
+      ))}
+    </div>
+  );
+};
+
+// ─── RECENT ACTIVITY POPUP ───
+const RecentActivity = () => {
+  const [activity, setActivity] = useState<{ name: string; barrio: string; size: string; emoji: string } | null>(null);
+
+  useEffect(() => {
+    const showActivity = () => {
+      const name = QUITO_NAMES[Math.floor(Math.random() * QUITO_NAMES.length)];
+      const barrio = QUITO_BARRIOS[Math.floor(Math.random() * QUITO_BARRIOS.length)];
+      const sizeKeys = Object.keys(sizes);
+      const sizeKey = sizeKeys[Math.floor(Math.random() * sizeKeys.length)];
+      const fruit = fruits[Math.floor(Math.random() * fruits.length)];
+      
+      setActivity({ 
+        name, 
+        barrio, 
+        size: sizes[sizeKey].label,
+        emoji: fruit.emoji
+      });
+
+      setTimeout(() => setActivity(null), 5000);
+    };
+
+    const interval = setInterval(() => {
+      if (Math.random() > 0.4) showActivity();
+    }, 15000);
+
+    return () => clearInterval(interval);
+  }, []);
+
+  return (
+    <AnimatePresence>
+      {activity && (
+        <motion.div
+          initial={{ opacity: 0, x: -50, scale: 0.8 }}
+          animate={{ opacity: 1, x: 0, scale: 1 }}
+          exit={{ opacity: 0, x: -20, scale: 0.8 }}
+          className="fixed bottom-6 left-6 z-[450] flex items-center gap-4 bg-black/60 backdrop-blur-xl border border-white/10 p-4 rounded-3xl shadow-2xl max-w-sm"
+        >
+          <div className="w-12 h-12 bg-white/5 rounded-2xl flex items-center justify-center text-2xl">
+            {activity.emoji}
+          </div>
+          <div>
+            <div className="text-[10px] font-black uppercase tracking-widest text-purple-400 mb-0.5">Actividad Reciente</div>
+            <div className="text-xs font-bold leading-tight">
+              <span className="text-white">{activity.name}</span> en <span className="text-white/60">{activity.barrio}</span> 
+              <br />
+              <span className="text-white/40">acaba de pedir un </span>
+              <span className="text-amber-400 font-black">{activity.size}</span>
+            </div>
+          </div>
+        </motion.div>
+      )}
+    </AnimatePresence>
+  );
+};
+
 // ─── COMPONENTS ───
 const FruitRain = () => {
   const fruits = ['🍓', '🥭', '🍉', '🍋', '🍇', '🍑'];
@@ -256,6 +379,46 @@ export default function App() {
   const [isCopied, setIsCopied] = useState<boolean>(false);
   const [isReferralApplied, setIsReferralApplied] = useState<boolean>(false);
   
+  // New Enhanced State
+  const [cart, setCart] = useState<CartItem[]>([]);
+  const [showCart, setShowCart] = useState<boolean>(false);
+  const [isPreparing, setIsPreparing] = useState<boolean>(false);
+  const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
+  const [splash, setSplash] = useState<{ color: string; x: number; y: number } | null>(null);
+
+  // Mouse tracking for Parallax
+  useEffect(() => {
+    const handleMouseMove = (e: MouseEvent) => {
+      setMousePos({ 
+        x: (e.clientX / window.innerWidth - 0.5) * 30, 
+        y: (e.clientY / window.innerHeight - 0.5) * 30 
+      });
+    };
+    window.addEventListener("mousemove", handleMouseMove);
+    return () => window.removeEventListener("mousemove", handleMouseMove);
+  }, []);
+
+  const getThemeColor = () => {
+    if (selectedFruits.length === 0) return "#a855f7";
+    const firstFruit = selectedFruits[0];
+    const colorMap: Record<string, string> = {
+      fresa: "#ef4444",   // Red
+      mango: "#f59e0b",   // Amber
+      sandia: "#f43f5e",  // Pink/Red
+      limon: "#84cc16",   // Lime
+      uva: "#8b5cf6",     // Purple
+      durazno: "#fb923c"  // Orange
+    };
+    return colorMap[firstFruit.id] || "#a855f7";
+  };
+  const themeColor = getThemeColor();
+
+  const getTier = (points: number) => {
+    if (points >= 150) return "Legend";
+    if (points >= 50) return "Master";
+    return "Fan";
+  };
+
   // Live Feed State
   const [liveOrder, setLiveOrder] = useState<string>("");
   
@@ -303,10 +466,6 @@ export default function App() {
   const [showPaymentModal, setShowPaymentModal] = useState<boolean>(false);
   const [deliveryTime, setDeliveryTime] = useState<string>("");
   const [deliveryAddress, setDeliveryAddress] = useState<string>("");
-
-  // Exit Intent State
-  const [showExitModal, setShowExitModal] = useState<boolean>(false);
-  const [exitCountdown, setExitCountdown] = useState<number>(300); // 5 minutes
 
   // Daily Offer Countdown State
   const [offerTimeLeft, setOfferTimeLeft] = useState<string>("");
@@ -601,51 +760,11 @@ export default function App() {
     renderBag();
   }, [selectedFruits, selectedToppings]);
 
-  // Exit Intent Logic
-  useEffect(() => {
-    const hasShown = sessionStorage.getItem("tyango_exit_shown");
-    if (hasShown) return;
-
-    const handleMouseLeave = (e: MouseEvent) => {
-      if (e.clientY < 20) {
-        setShowExitModal(true);
-        sessionStorage.setItem("tyango_exit_shown", "true");
-        document.removeEventListener("mouseleave", handleMouseLeave);
-      }
-    };
-
-    const timer = setTimeout(() => {
-      if (!sessionStorage.getItem("tyango_exit_shown")) {
-        setShowExitModal(true);
-        sessionStorage.setItem("tyango_exit_shown", "true");
-        document.removeEventListener("mouseleave", handleMouseLeave);
-      }
-    }, 60000);
-
-    document.addEventListener("mouseleave", handleMouseLeave);
-    return () => {
-      document.removeEventListener("mouseleave", handleMouseLeave);
-      clearTimeout(timer);
-    };
-  }, []);
-
-  useEffect(() => {
-    let interval: any;
-    if (showExitModal && exitCountdown > 0) {
-      interval = setInterval(() => {
-        setExitCountdown((prev) => prev - 1);
-      }, 1000);
+  const toggleFruit = (fruit: Fruit, e?: React.MouseEvent) => {
+    if (e) {
+      setSplash({ color: fruitColors[fruit.id] || "#fff", x: e.clientX, y: e.clientY });
+      setTimeout(() => setSplash(null), 800);
     }
-    return () => clearInterval(interval);
-  }, [showExitModal, exitCountdown]);
-
-  const formatTime = (seconds: number) => {
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
-    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
-  };
-
-  const toggleFruit = (fruit: Fruit) => {
     setSelectedFruits((prev) => {
       if (selectionMode === 'individual') {
         return [fruit];
@@ -673,7 +792,11 @@ export default function App() {
     }
   };
 
-  const toggleTopping = (topping: Topping) => {
+  const toggleTopping = (topping: Topping, e?: React.MouseEvent) => {
+    if (e) {
+      setSplash({ color: "#fff", x: e.clientX, y: e.clientY });
+      setTimeout(() => setSplash(null), 800);
+    }
     setSelectedToppings((prev) => {
       const idx = prev.findIndex((x) => x.id === topping.id);
       if (idx === -1) {
@@ -787,8 +910,37 @@ export default function App() {
     setTimeout(() => setIsReferralApplied(false), 2000);
   };
 
+  const addToCart = () => {
+    if (selectedFruits.length === 0) {
+      setToastMsg("Selecciona al menos una fruta 🍓");
+      setShowToast(true);
+      setTimeout(() => setShowToast(false), 3000);
+      return;
+    }
+    
+    const newItem: CartItem = {
+      id: `item_${Date.now()}`,
+      fruits: [...selectedFruits],
+      toppings: [...selectedToppings],
+      size: selectedSize,
+      quantity,
+      price: parseFloat(totalPrice)
+    };
+    
+    setCart(prev => [...prev, newItem]);
+    setSelectedFruits([]);
+    setSelectedToppings([]);
+    setQuantity(1);
+    setShowCart(true);
+    playClickSound();
+    
+    setToastMsg("¡Agregado al carrito! 🛒");
+    setShowToast(true);
+    setTimeout(() => setShowToast(false), 3000);
+  };
+
   const confirmOrder = () => {
-    if (selectedFruits.length === 0) return;
+    if (cart.length === 0) return;
     setShowReviewModal(true);
   };
 
@@ -805,31 +957,31 @@ export default function App() {
       return;
     }
 
+    setIsPreparing(true);
+    setShowPaymentModal(false);
+
     // Show success animation first
     setShowOrderSuccessAnimation(true);
     
-    const sz = dynamicSizes[selectedSize];
-    const base = bundlePrice !== null ? bundlePrice : (sz.price * quantity);
-    const disc = discountPct > 0 ? base * (discountPct / 100) : 0;
-    const total = (base - disc).toFixed(2);
-    const tops = selectedToppings.length > 0 ? selectedToppings.map((t) => t.name).join(", ") : "Sin aderezos";
-    const fruitNames = selectedFruits.map(f => `${f.emoji} ${f.name}`).join(" + ");
+    const cartItemsText = cart.map((item, i) => {
+      const sz = dynamicSizes[item.size];
+      const fruitNames = item.fruits.map(f => `${f.emoji} ${f.name}`).join(" + ");
+      const tops = item.toppings.length > 0 ? item.toppings.map(t => t.name).join(", ") : "Sin aderezos";
+      return `${i + 1}. ${sz.label} (${sz.weight}g) de ${fruitNames} con ${tops} x${item.quantity} uds`;
+    }).join("\n");
+
+    const totalCartPrice = cart.reduce((acc, item) => acc + item.price, 0);
+    const disc = discountPct > 0 ? totalCartPrice * (discountPct / 100) : 0;
+    const finalTotal = (totalCartPrice - disc).toFixed(2);
     
     const deliveryTimeLine = deliveryTime ? `⏰ Horario preferido: ${deliveryTime}\n` : "";
     const deliveryAddressLine = `📍 Dirección: ${deliveryAddress || "Por coordinar en chat"}\n`;
-    
-    const bundleLine = bundlePrice !== null ? "📦 Pack especial aplicado\n" : "";
     const loyaltyLine = loyaltyFreeTopping ? "🎁 Aderezo extra GRATIS (canje de puntos)\n" : "";
 
     const msg = encodeURIComponent(
-      `¡Hola TYANGO! 🍓 He realizado el pago de mi pedido (${selectionMode.toUpperCase()}):\n\n` +
-      `🍎 Frutas: ${fruitNames}\n` +
-      `🌶️ Aderezos: ${tops}\n` +
-      `📦 Tamaño: ${sz.label} (${sz.weight}g)\n` +
-      `🔢 Cantidad: ${quantity} unidades\n` +
-      `⚖️ Peso Total: ${sz.weight * quantity}g\n` +
-      `💜 Total: $${total}\n` +
-      bundleLine +
+      `¡Hola TYANGO! 🍓 He realizado el pago de mi pedido:\n\n` +
+      `${cartItemsText}\n\n` +
+      `💜 Total: $${finalTotal}\n` +
       loyaltyLine +
       deliveryTimeLine +
       deliveryAddressLine +
@@ -839,6 +991,7 @@ export default function App() {
     );
 
     const orderId = `order_${Date.now()}`;
+    // handle logic...
     
     // Handle User Profile Sync by Phone
     let currentProfile = userProfile;
@@ -881,14 +1034,20 @@ export default function App() {
       console.error("Error syncing profile by phone:", err);
     }
 
-    const newOrder: OrderRecord = {
+    const cartSummary = cart.map(item => {
+      const f = item.fruits.map(fr => fr.name).join(" + ");
+      const t = item.toppings.map(to => to.name).join(", ") || "Sin aderezos";
+      return `${item.quantity}x [${dynamicSizes[item.size].label}] ${f} (+ ${t})`;
+    }).join("\n");
+
+    const totalToPay = cart.reduce((acc, i) => acc + i.price, 0);
+
+    const newOrder = {
       id: orderId,
       userId: currentProfile?.userId || "guest",
-      items: fruitNames,
-      toppings: tops,
-      size: sz.label,
-      quantity: quantity,
-      total: parseFloat(total),
+      itemsSummary: cartSummary,
+      itemCount: cart.length,
+      total: totalToPay,
       date: new Date().toISOString()
     };
 
@@ -898,7 +1057,8 @@ export default function App() {
         ...newOrder,
         timestamp: serverTimestamp(),
         status: "pending",
-        phone: userPhone
+        phone: userPhone,
+        cart: cart // Store the raw cart for better history
       });
 
       // Update global stats counter
@@ -911,7 +1071,7 @@ export default function App() {
       }
 
       // Award Tyango Points (1 point per $1 spent)
-      const earnedPoints = Math.floor(newOrder.total);
+      const earnedPoints = Math.floor(totalToPay);
       if (currentProfile) {
         let currentPoints = currentProfile.loyaltyPoints || 0;
         
@@ -1147,9 +1307,148 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-[#0a0a0a] text-white font-sans selection:bg-purple-500 selection:text-white">
+      {/* Dynamic Splash */}
+      {splash && <ParticleSplash {...splash} />}
+      
+      {/* Recent Social Proof Popups */}
+      <RecentActivity />
+
+      {/* Preparing Overlay */}
+      <AnimatePresence>
+        {isPreparing && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[600] bg-black/90 backdrop-blur-2xl flex flex-col items-center justify-center p-6 text-center"
+          >
+            <motion.div
+              animate={{ rotate: 360 }}
+              transition={{ repeat: Infinity, duration: 4, ease: "linear" }}
+              className="w-32 h-32 border-4 border-purple-500/20 border-t-purple-500 rounded-full mb-8 relative"
+            >
+              <div className="absolute inset-0 flex items-center justify-center text-4xl">🍹</div>
+            </motion.div>
+            <h2 className="text-3xl font-black tracking-tighter mb-4">PREPARANDO TU TYANGO...</h2>
+            <p className="text-white/50 max-w-xs text-sm font-medium">Estamos seleccionando la mejor fruta y aplicando tus aderezos favoritos. Te redirigiremos a WhatsApp en segundos.</p>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Cart Drawer */}
+      <AnimatePresence>
+        {showCart && (
+          <>
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setShowCart(false)}
+              className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[450]"
+            />
+            <motion.div
+              initial={{ x: "100%" }}
+              animate={{ x: 0 }}
+              exit={{ x: "100%" }}
+              className="fixed top-0 right-0 bottom-0 w-full max-w-md bg-[#0d0d0d] border-l border-white/10 z-[460] shadow-2xl flex flex-col"
+            >
+              <div className="p-6 border-b border-white/5 flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 bg-purple-600/20 rounded-2xl flex items-center justify-center text-purple-400">
+                    <ShoppingBag size={20} />
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-black tracking-tight">TU CARRITO</h3>
+                    <p className="text-[10px] font-bold text-white/40 uppercase tracking-widest">{cart.length} productos seleccionados</p>
+                  </div>
+                </div>
+                <button onClick={() => setShowCart(false)} className="p-2 hover:bg-white/5 rounded-xl transition-colors">
+                  <X size={20} />
+                </button>
+              </div>
+
+              <div className="flex-1 overflow-y-auto p-6 space-y-4">
+                {cart.length === 0 ? (
+                  <div className="h-full flex flex-col items-center justify-center text-center space-y-4 opacity-40">
+                    <div className="text-6xl">🛒</div>
+                    <p className="font-black uppercase tracking-widest text-xs">Tu carrito está vacío</p>
+                  </div>
+                ) : (
+                  cart.map((item) => (
+                    <div key={item.id} className="p-4 bg-white/5 border border-white/10 rounded-[32px] flex items-center gap-4 group">
+                      <div className="w-16 h-16 bg-white/5 rounded-2xl flex items-center justify-center text-3xl">
+                        {item.fruits[0]?.emoji}
+                      </div>
+                      <div className="flex-1">
+                        <div className="text-xs font-black uppercase tracking-tight mb-1">
+                          {item.fruits.map(f => f.name).join(" + ")}
+                        </div>
+                        <div className="text-[10px] font-bold text-white/40 uppercase tracking-widest mb-2">
+                          {dynamicSizes[item.size].label} · x{item.quantity}
+                        </div>
+                        <div className="text-sm font-black text-amber-400">${item.price.toFixed(2)}</div>
+                      </div>
+                      <button 
+                        onClick={() => setCart(prev => prev.filter(x => x.id !== item.id))}
+                        className="p-2 text-white/20 hover:text-red-400 transition-colors"
+                      >
+                        <Trash2 size={16} />
+                      </button>
+                    </div>
+                  ))
+                )}
+              </div>
+
+              {cart.length > 0 && (
+                <div className="p-6 bg-[#111] border-t border-white/10 space-y-4">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] font-black uppercase tracking-widest text-white/40">Total estimado</span>
+                    <span className="text-2xl font-black text-white">${cart.reduce((acc, i) => acc + i.price, 0).toFixed(2)}</span>
+                  </div>
+                  <motion.button
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
+                    onClick={() => {
+                      setShowCart(false);
+                      confirmOrder();
+                    }}
+                    className="w-full py-4 bg-purple-600 hover:bg-purple-500 rounded-2xl font-black uppercase tracking-widest text-xs shadow-xl shadow-purple-600/20"
+                  >
+                    Confirmar Pedido
+                  </motion.button>
+                </div>
+              )}
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
+
+      {/* Floating Cart Trigger */}
+      <AnimatePresence>
+        {cart.length > 0 && !showCart && (
+          <motion.button
+            initial={{ scale: 0, y: 50 }}
+            animate={{ scale: 1, y: 0 }}
+            exit={{ scale: 0, y: 50 }}
+            whileHover={{ scale: 1.1 }}
+            whileTap={{ scale: 0.9 }}
+            onClick={() => setShowCart(true)}
+            className="fixed bottom-6 right-6 z-[440] w-16 h-16 bg-purple-600 rounded-2xl flex items-center justify-center shadow-2xl shadow-purple-600/40 relative"
+          >
+            <ShoppingBag size={24} />
+            <div className="absolute -top-2 -right-2 w-6 h-6 bg-amber-500 text-black text-[10px] font-black rounded-full flex items-center justify-center border-2 border-[#0a0a0a]">
+              {cart.reduce((acc, i) => acc + i.quantity, 0)}
+            </div>
+          </motion.button>
+        )}
+      </AnimatePresence>
+
       {/* Background Elements */}
       <div className="fixed inset-0 pointer-events-none overflow-hidden z-0">
-        <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-purple-600/20 blur-[120px] rounded-full" />
+        <div 
+          className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] blur-[120px] rounded-full transition-colors duration-1000" 
+          style={{ backgroundColor: `${themeColor}33` }}
+        />
         <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-amber-600/10 blur-[120px] rounded-full" />
         <div 
           className="absolute inset-0 h-screen opacity-50" 
@@ -1385,38 +1684,59 @@ export default function App() {
             >
               {/* Floating Badges */}
               <motion.div 
-                animate={{ y: [0, -8, 0] }}
-                transition={{ repeat: Infinity, duration: 2, delay: 0 }}
+                animate={{ 
+                  y: [0, -8, 0],
+                  x: mousePos.x * 0.5
+                }}
+                transition={{ 
+                  y: { repeat: Infinity, duration: 2, delay: 0 },
+                  x: { type: "spring", stiffness: 50, damping: 20 }
+                }}
                 className="absolute top-8 left-8 px-4 py-2 bg-green-500/20 border border-green-500/30 rounded-full backdrop-blur-md z-20"
               >
                 <span className="text-[10px] font-black uppercase tracking-widest text-green-400">100% Fruta Fresca</span>
               </motion.div>
 
               <motion.div 
-                animate={{ y: [0, -8, 0] }}
-                transition={{ repeat: Infinity, duration: 2, delay: 0.4 }}
+                animate={{ 
+                  y: [0, -8, 0],
+                  x: mousePos.x * -0.3
+                }}
+                transition={{ 
+                  y: { repeat: Infinity, duration: 2, delay: 0.4 },
+                  x: { type: "spring", stiffness: 50, damping: 20 }
+                }}
                 className="absolute top-12 right-8 px-4 py-2 bg-purple-500/20 border border-purple-500/30 rounded-full backdrop-blur-md z-20"
               >
                 <span className="text-[10px] font-black uppercase tracking-widest text-purple-400">Sellado al Vacío</span>
               </motion.div>
 
               <motion.div 
-                animate={{ y: [0, -8, 0] }}
-                transition={{ repeat: Infinity, duration: 2, delay: 0.8 }}
+                animate={{ 
+                  y: [0, -8, 0],
+                  x: mousePos.x * 0.2
+                }}
+                transition={{ 
+                  y: { repeat: Infinity, duration: 2, delay: 0.8 },
+                  x: { type: "spring", stiffness: 50, damping: 20 }
+                }}
                 className="absolute bottom-8 left-1/2 -translate-x-1/2 px-4 py-2 bg-amber-500/20 border border-amber-500/30 rounded-full backdrop-blur-md z-20"
               >
                 <span className="text-[10px] font-black uppercase tracking-widest text-amber-400">Quito, Ecuador</span>
               </motion.div>
 
               {/* Bag Canvas */}
-              <div className="relative z-10 transform scale-150">
+              <motion.div 
+                animate={{ rotateX: mousePos.y * 0.5, rotateY: mousePos.x * 0.5 }}
+                className="relative z-10 transform scale-150"
+              >
                 <canvas 
                   ref={heroBagCanvasRef}
                   width={300}
                   height={300}
                   className="w-[300px] h-[300px]"
                 />
-              </div>
+              </motion.div>
 
               {/* Decorative Glow */}
               <div className="absolute inset-0 bg-gradient-to-tr from-purple-600/10 to-transparent pointer-events-none" />
@@ -1481,7 +1801,7 @@ export default function App() {
               <span className="text-[10px] font-black uppercase tracking-widest text-amber-500">Oferta del Día</span>
             </div>
             <h2 className="text-2xl md:text-3xl font-display font-black tracking-tighter leading-tight">
-              Tyango Clásico + 2 aderezos <br />
+              Tyango Grande + 2 aderezos <br />
               <span className="text-purple-500">a precio especial.</span>
             </h2>
             <div className="flex items-center justify-center md:justify-start gap-4">
@@ -1613,7 +1933,7 @@ export default function App() {
             </div>
           </motion.div>
 
-          {/* Clásico Card */}
+          {/* Grande Card */}
           <div className="relative">
             <div className="absolute -top-4 left-1/2 -translate-x-1/2 z-10 px-6 py-1.5 bg-purple-600 rounded-full text-[10px] font-black uppercase tracking-widest text-white shadow-lg shadow-purple-600/40 whitespace-nowrap">⭐ Más Elegido</div>
             <motion.div 
@@ -1625,7 +1945,7 @@ export default function App() {
               </div>
               <div className="flex flex-col sm:flex-col items-center space-y-4 sm:space-y-6 flex-1">
                 <div className="space-y-2 text-center">
-                  <h3 className="text-3xl font-black tracking-tighter">CLÁSICO</h3>
+                  <h3 className="text-3xl font-black tracking-tighter">GRANDE</h3>
                   <div className="px-4 py-1 bg-purple-500/10 border border-purple-500/20 rounded-full text-[10px] font-black uppercase tracking-widest text-purple-500">
                     311 Gramos
                   </div>
@@ -1639,7 +1959,7 @@ export default function App() {
                   onClick={() => setSelectedSize("clasico")}
                   className="w-full py-3 sm:py-5 bg-purple-600 text-white font-black uppercase tracking-widest rounded-2xl sm:rounded-3xl shadow-xl shadow-purple-600/20 text-center text-[10px] sm:text-xs"
                 >
-                  Seleccionar Clásico
+                  Seleccionar Grande
                 </motion.a>
               </div>
             </motion.div>
@@ -1938,7 +2258,7 @@ export default function App() {
 
               {selectedSize === 'clasico' && (
                 <p className="text-[9px] text-purple-400/60 italic text-center mt-2">
-                  La mayoría de nuestros clientes eligen el Clásico
+                  La mayoría de nuestros clientes eligen el Grande
                 </p>
               )}
 
@@ -2007,16 +2327,41 @@ export default function App() {
                     </div>
                   )}
                   <div className="pt-4 border-t border-white/10 flex justify-between items-end">
-                    <div className="text-[10px] font-bold uppercase tracking-widest text-white/40 mb-1">Total a pagar</div>
+                    <div className="text-[10px] font-bold uppercase tracking-widest text-white/40 mb-1">Total actual</div>
                     <div className="flex items-baseline">
                       <span className="text-xl font-black align-super mr-0.5 text-white/60">$</span>
-                      <span className="text-5xl font-black tracking-tighter tabular-nums" style={{ fontVariantNumeric: 'tabular-nums' }}>{intPart}</span>
+                      <span className="text-5xl font-black tracking-tighter tabular-nums" style={{ color: themeColor, fontVariantNumeric: 'tabular-nums' }}>{intPart}</span>
                       <span className="text-2xl font-black text-white/60 align-super">.{decPart}</span>
                     </div>
                   </div>
                 </div>
 
                 <div className="space-y-4">
+                  <div className="grid grid-cols-2 gap-3">
+                    <motion.button
+                      whileHover={{ scale: 1.02 }}
+                      whileTap={{ scale: 0.98 }}
+                      onClick={addToCart}
+                      disabled={selectedFruits.length === 0}
+                      className="flex items-center justify-center gap-2 py-5 bg-white/5 border border-white/10 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-white/10 transition-all disabled:opacity-40"
+                    >
+                      <Plus size={14} />
+                      <span>Añadir</span>
+                    </motion.button>
+                    <motion.button 
+                      whileHover={{ scale: 1.02 }}
+                      whileTap={{ scale: 0.98 }}
+                      onClick={() => {
+                        addToCart();
+                        setTimeout(() => setShowCart(true), 300);
+                      }}
+                      disabled={selectedFruits.length === 0}
+                      style={{ backgroundColor: themeColor }}
+                      className="flex items-center justify-center gap-2 py-5 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-xl transition-all disabled:opacity-50"
+                    >
+                      <span>Checkout</span>
+                    </motion.button>
+                  </div>
                   <div className="flex items-center gap-2">
                     <div className="h-px flex-1 bg-white/10" />
                     <span className="text-[8px] font-bold uppercase tracking-widest text-white/20">Compartir en</span>
@@ -2102,11 +2447,11 @@ export default function App() {
                     whileHover={{ scale: 1.02 }}
                     whileTap={{ scale: 0.98 }}
                     onClick={confirmOrder}
-                    disabled={selectedFruits.length === 0 || orderConfirmed}
+                    disabled={cart.length === 0 || orderConfirmed}
                     className="w-full flex items-center justify-center gap-2 py-5 bg-purple-600 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-purple-500 transition-all shadow-xl shadow-purple-600/20 disabled:opacity-50"
                   >
                     {orderConfirmed ? <CheckCircle2 size={14} /> : <MessageCircle size={14} />}
-                    {orderConfirmed ? "Confirmado" : "Pedir WhatsApp"}
+                    {orderConfirmed ? "Confirmado" : "Comprar Todo (" + cart.length + ")"}
                   </motion.button>
                   
                   <div className="space-y-3">
@@ -2549,16 +2894,15 @@ export default function App() {
                               <div className="text-[10px] font-black uppercase tracking-widest text-purple-400">
                                 {typeof order.date === 'string' ? new Date(order.date).toLocaleDateString('es-EC', { day: '2-digit', month: 'short', year: 'numeric' }) : 'Reciente'}
                               </div>
-                              <div className="text-sm font-bold">{order.items}</div>
+                              <div className="text-sm font-bold whitespace-pre-line">{order.itemsSummary}</div>
                             </div>
                             <div className="text-lg font-black tracking-tighter">${order.total.toFixed(2)}</div>
                           </div>
                           <div className="flex items-center gap-4 text-[9px] font-bold uppercase tracking-widest text-white/30">
-                            <span>{order.size}</span>
+                            <ShoppingBag size={10} />
+                            <span>{order.itemCount} {order.itemCount === 1 ? 'ítem' : 'ítems'}</span>
                             <span>•</span>
-                            <span>{order.quantity} uds</span>
-                            <span>•</span>
-                            <span className="text-green-500/60">Completado</span>
+                            <span className="text-green-500/60 font-black">Completado</span>
                           </div>
                         </div>
                       ))}
@@ -2880,62 +3224,6 @@ export default function App() {
                     Descargar Imagen
                   </motion.button>
                 </div>
-              </div>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {/* Exit Intent Modal */}
-      <AnimatePresence>
-        {showExitModal && (
-          <motion.div 
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[600] flex items-center justify-center p-6 bg-black/90 backdrop-blur-2xl"
-          >
-            <motion.div 
-              initial={{ scale: 0.9, opacity: 0, y: 20 }}
-              animate={{ scale: 1, opacity: 1, y: 0 }}
-              exit={{ scale: 0.9, opacity: 0, y: 20 }}
-              className="relative w-full max-w-md bg-[#111] border border-white/10 rounded-[40px] p-8 md:p-12 text-center space-y-8"
-            >
-              <div className="space-y-2">
-                <h2 className="text-4xl font-display font-black tracking-tighter text-white">¡ESPERA! 🍓</h2>
-                <p className="text-sm font-medium text-white/60 leading-relaxed">
-                  Llévate <span className="text-purple-400 font-black">10% de descuento</span> si pides en los próximos 5 minutos.
-                </p>
-              </div>
-
-              <div className="py-8 bg-white/5 border border-white/10 rounded-3xl">
-                <div className="text-5xl font-black tracking-tighter text-purple-500 font-mono">
-                  {formatTime(exitCountdown)}
-                </div>
-                <div className="text-[10px] font-black uppercase tracking-widest text-white/20 mt-2">Tiempo restante</div>
-              </div>
-
-              <div className="space-y-4">
-                <motion.button 
-                  whileHover={exitCountdown > 0 ? { scale: 1.02 } : {}}
-                  whileTap={exitCountdown > 0 ? { scale: 0.98 } : {}}
-                  disabled={exitCountdown <= 0}
-                  onClick={() => {
-                    playClickSound();
-                    setDiscountPct(10);
-                    setShowExitModal(false);
-                    document.getElementById("configurar")?.scrollIntoView({ behavior: "smooth" });
-                  }}
-                  className="w-full py-5 bg-purple-600 hover:bg-purple-500 disabled:bg-white/10 disabled:text-white/20 rounded-full text-xs font-black uppercase tracking-widest transition-all shadow-xl shadow-purple-600/20"
-                >
-                  Quiero mi descuento
-                </motion.button>
-                <button 
-                  onClick={() => setShowExitModal(false)}
-                  className="w-full text-[10px] font-bold uppercase tracking-widest text-white/20 hover:text-white/40 transition-colors"
-                >
-                  No gracias, prefiero pagar completo
-                </button>
               </div>
             </motion.div>
           </motion.div>
