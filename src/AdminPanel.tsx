@@ -33,6 +33,8 @@ interface Order {
   status: string;
   userId: string;
   phone?: string;
+  ambassador?: string | null;
+  commissionOwed?: number;
 }
 
 interface Review {
@@ -355,6 +357,16 @@ export default function AdminPanel() {
                           }`}>
                             {order.status || 'pending'}
                           </span>
+                          {order.ambassador && (
+                            <div className="flex items-center gap-2">
+                              <span className="text-[10px] font-black uppercase tracking-widest text-purple-400">
+                                🎖️ {order.ambassador}
+                              </span>
+                              <span className="text-[10px] font-black tracking-widest text-amber-500">
+                                +${(order.commissionOwed || 0).toFixed(2)}
+                              </span>
+                            </div>
+                          )}
                         </div>
                         <div className="text-lg font-bold leading-tight whitespace-pre-line">{order.itemsSummary}</div>
                         <div className="text-[10px] font-medium text-white/40">Cantidad: {order.itemCount} {order.itemCount === 1 ? 'producto' : 'productos'}</div>
@@ -393,6 +405,51 @@ export default function AdminPanel() {
                     <div className="py-20 text-center text-white/20 font-black uppercase tracking-widest">No hay pedidos registrados</div>
                   )}
                 </div>
+
+                {/* Ambassador Summary Table */}
+                {(() => {
+                  const ambassadors: Record<string, { count: number, total: number }> = {};
+                  orders.forEach(o => {
+                    if (o.ambassador && o.status !== 'cancelled') {
+                      if (!ambassadors[o.ambassador]) {
+                        ambassadors[o.ambassador] = { count: 0, total: 0 };
+                      }
+                      ambassadors[o.ambassador].count += 1;
+                      ambassadors[o.ambassador].total += (o.commissionOwed || 0);
+                    }
+                  });
+
+                  const ambassadorList = Object.entries(ambassadors);
+                  if (ambassadorList.length === 0) return null;
+
+                  return (
+                    <div className="mt-12 space-y-4">
+                      <h3 className="text-sm font-black uppercase tracking-widest text-white/40">Comisiones Pendientes</h3>
+                      <div className="bg-[#111] border border-white/10 rounded-[32px] overflow-hidden shadow-2xl">
+                        <table className="w-full text-left">
+                          <thead className="bg-white/5 border-b border-white/10">
+                            <tr>
+                              <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-white/40">Nombre del embajador</th>
+                              <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-white/40 text-center">Pedidos</th>
+                              <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-white/40 text-right">Total a pagar</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-white/5">
+                            {ambassadorList.map(([name, data]) => (
+                              <tr key={name} className="hover:bg-white/[0.02] transition-colors">
+                                <td className="px-6 py-4">
+                                  <div className="text-xs font-black uppercase tracking-tight text-purple-400">{name}</div>
+                                </td>
+                                <td className="px-6 py-4 text-xs font-bold text-center">{data.count}</td>
+                                <td className="px-6 py-4 text-right text-sm font-black text-amber-500">${data.total.toFixed(2)}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  );
+                })()}
               </motion.div>
             )}
 

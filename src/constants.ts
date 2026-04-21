@@ -62,11 +62,20 @@ export const sizes: Record<string, Size> = {
   premium: { label: "Premium", weight: 150, price: 1.75, isSoldOut: true },
 };
 
-export const referralCodes: Record<string, { type: 'pct' | 'product' | 'fixed', value: number, applyTo: 'all' | 'grande' | 'mini', description: string }> = {
+export const referralCodes: Record<string, { type: 'pct' | 'product' | 'fixed', value: number, applyTo: 'all' | 'grande' | 'mini', description: string, ambassador?: string }> = {
   "TYANGO10": { type: 'pct', value: 10, applyTo: 'grande', description: '10% off en Grande' },
   "BIENVENIDO": { type: 'pct', value: 10, applyTo: 'grande', description: '10% off en Grande — primer pedido' },
   "INSTAGRAM": { type: 'pct', value: 10, applyTo: 'grande', description: '10% off en Grande — comunidad Instagram' },
   "AMIGO5": { type: 'pct', value: 5, applyTo: 'all', description: '5% off en cualquier tamaño' },
+  "JORDAN": { type: 'pct', value: 5, applyTo: 'all', description: '5% off — código de Jordan', ambassador: 'Jordan' },
+  "CRIS":   { type: 'pct', value: 5, applyTo: 'all', description: '5% off — código de Cris', ambassador: 'Cris' },
+  "NICO":   { type: 'pct', value: 5, applyTo: 'all', description: '5% off — código de Nico', ambassador: 'Nico' },
+  "FABI":   { type: 'pct', value: 5, applyTo: 'all', description: '5% off — código de Fabi', ambassador: 'Fabi' },
+  "SAM":    { type: 'pct', value: 5, applyTo: 'all', description: '5% off — código de Sam', ambassador: 'Sam' },
+  "SARAHI": { type: 'pct', value: 5, applyTo: 'all', description: '5% off — código de Sarahí', ambassador: 'Sarahí' },
+  "JULI":   { type: 'pct', value: 5, applyTo: 'all', description: '5% off — código de Juli', ambassador: 'Juli' },
+  "ALAN":   { type: 'pct', value: 5, applyTo: 'all', description: '5% off — código de Alan', ambassador: 'Alan' },
+  "SEBAS":  { type: 'pct', value: 5, applyTo: 'all', description: '5% off — código de Sebas', ambassador: 'Sebas' },
 };
 
 export const testimonials: Testimonial[] = [

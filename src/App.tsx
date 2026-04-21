@@ -378,6 +378,7 @@ export default function App() {
   const [showOrderSuccessAnimation, setShowOrderSuccessAnimation] = useState<boolean>(false);
   const [isCopied, setIsCopied] = useState<boolean>(false);
   const [isReferralApplied, setIsReferralApplied] = useState<boolean>(false);
+  const [appliedAmbassador, setAppliedAmbassador] = useState<string | null>(null);
   
   // New Enhanced State
   const [cart, setCart] = useState<CartItem[]>([]);
@@ -827,6 +828,7 @@ export default function App() {
       }
       
       setDiscountPct(hardcoded.value);
+      setAppliedAmbassador(hardcoded.ambassador || null);
       setReferralMsg({ text: `✓ Código ${raw} aplicado — ${hardcoded.description}`, type: "ok" });
       setIsReferralApplied(true);
       setTimeout(() => setIsReferralApplied(false), 2000);
@@ -865,6 +867,7 @@ export default function App() {
 
           setIsLoyaltyRewardApplied(false);
           setDiscountPct(10);
+          setAppliedAmbassador(null);
           setAppliedReferralCode(raw);
           setReferralMsg({ text: `✓ Código ${raw} aplicado — 10% off en Grande`, type: "ok" });
           setIsReferralApplied(true);
@@ -875,6 +878,7 @@ export default function App() {
           // we still allow it to ensure "it works" for the user.
           setIsLoyaltyRewardApplied(false);
           setDiscountPct(10);
+          setAppliedAmbassador(null);
           setReferralMsg({ text: `✓ Código ${raw} aplicado — 10% off en Grande`, type: "ok" });
           setIsReferralApplied(true);
           setTimeout(() => setIsReferralApplied(false), 2000);
@@ -885,6 +889,7 @@ export default function App() {
         // Fallback on error
         setIsLoyaltyRewardApplied(false);
         setDiscountPct(10);
+        setAppliedAmbassador(null);
         setReferralMsg({ text: `✓ Código ${raw} aplicado — 10% off en Grande`, type: "ok" });
         setIsReferralApplied(true);
         setTimeout(() => setIsReferralApplied(false), 2000);
@@ -893,6 +898,7 @@ export default function App() {
     }
 
     setDiscountPct(0);
+    setAppliedAmbassador(null);
     setReferralMsg({ text: "Código no válido.", type: "err" });
   };
 
@@ -1042,13 +1048,19 @@ export default function App() {
 
     const totalToPay = cart.reduce((acc, i) => acc + i.price, 0);
 
+    const commissionOwed = appliedAmbassador 
+      ? (selectedSize === 'mini' ? 0.20 : 0.25) 
+      : 0;
+
     const newOrder = {
       id: orderId,
       userId: currentProfile?.userId || "guest",
       itemsSummary: cartSummary,
       itemCount: cart.length,
       total: totalToPay,
-      date: new Date().toISOString()
+      date: new Date().toISOString(),
+      ambassador: appliedAmbassador || null,
+      commissionOwed: commissionOwed
     };
 
     // Save to Firestore for Admin (Central Registry)
