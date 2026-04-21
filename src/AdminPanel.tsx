@@ -161,8 +161,11 @@ export default function AdminPanel() {
   const handleLogin = async () => {
     try {
       await signInWithPopup(auth, googleProvider);
-    } catch (error) {
+    } catch (error: any) {
       console.error("Login failed", error);
+      setToastMsg(`Error de inicio: ${error.message || "Verifica tu conexión"}`);
+      setShowToast(true);
+      setTimeout(() => setShowToast(false), 5000);
     }
   };
 
@@ -434,89 +437,6 @@ export default function AdminPanel() {
                     </table>
                   </div>
                 </div>
-
-                {/* Ambassador Summary Table */}
-                {(() => {
-                  const ambassadors: Record<string, { count: number, total: number }> = {};
-                  orders.forEach(o => {
-                    if (o.ambassador && o.status !== 'cancelled') {
-                      if (!ambassadors[o.ambassador]) {
-                        ambassadors[o.ambassador] = { count: 0, total: 0 };
-                      }
-                      ambassadors[o.ambassador].count += 1;
-                      ambassadors[o.ambassador].total += (o.commissionOwed || 0);
-                    }
-                  });
-
-                  const ambassadorList = Object.entries(ambassadors);
-                  if (ambassadorList.length === 0) return null;
-
-                  return (
-                    <div className="mt-12 grid grid-cols-1 lg:grid-cols-2 gap-8">
-                      <div className="space-y-4">
-                        <h3 className="text-sm font-black uppercase tracking-widest text-white/40 flex items-center gap-2">
-                          <Users size={14} /> Comisiones Pendientes
-                        </h3>
-                        <div className="bg-[#111] border border-white/10 rounded-[32px] overflow-hidden shadow-2xl">
-                          <table className="w-full text-left">
-                            <thead className="bg-white/5 border-b border-white/10">
-                              <tr>
-                                <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-white/40">Embajador</th>
-                                <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-white/40 text-center">Pedidos</th>
-                                <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-white/40 text-right">A pagar</th>
-                              </tr>
-                            </thead>
-                            <tbody className="divide-y divide-white/5">
-                              {ambassadorList.map(([name, data]) => (
-                                <tr key={name} className="hover:bg-white/[0.02] transition-colors">
-                                  <td className="px-6 py-4">
-                                    <div className="text-xs font-black uppercase tracking-tight text-purple-400">{name}</div>
-                                  </td>
-                                  <td className="px-6 py-4 text-xs font-bold text-center">{data.count}</td>
-                                  <td className="px-6 py-4 text-right text-sm font-black text-amber-500">${data.total.toFixed(2)}</td>
-                                </tr>
-                              ))}
-                            </tbody>
-                          </table>
-                        </div>
-                      </div>
-
-                      <div className="space-y-4">
-                        <h3 className="text-sm font-black uppercase tracking-widest text-white/40 flex items-center gap-2">
-                          <Ticket size={14} /> Códigos Activos (Constants)
-                        </h3>
-                        <div className="bg-[#111] border border-white/10 rounded-[32px] overflow-hidden shadow-2xl max-h-[400px] overflow-y-auto custom-scroll">
-                          <table className="w-full text-left border-collapse">
-                            <thead className="bg-white/5 border-b border-white/10 sticky top-0 z-10 backdrop-blur-md">
-                              <tr>
-                                <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-white/40">Código</th>
-                                <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-white/40">Embajador</th>
-                                <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-white/40 text-right">Dcto</th>
-                              </tr>
-                            </thead>
-                            <tbody className="divide-y divide-white/5">
-                              {Object.entries(referralCodes).map(([code, config]) => (
-                                <tr key={code} className="hover:bg-white/[0.02] transition-colors">
-                                  <td className="px-6 py-4">
-                                    <code className="text-xs font-black tracking-widest text-white bg-white/5 px-2 py-1 rounded">{code}</code>
-                                  </td>
-                                  <td className="px-6 py-4">
-                                    <span className="text-[10px] font-bold uppercase tracking-widest text-white/40">
-                                      {config.ambassador || "—"}
-                                    </span>
-                                  </td>
-                                  <td className="px-6 py-4 text-right">
-                                    <span className="text-xs font-black text-amber-500">{config.value}{config.type === 'pct' ? '%' : '$'}</span>
-                                  </td>
-                                </tr>
-                              ))}
-                            </tbody>
-                          </table>
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })()}
               </motion.div>
             )}
 
@@ -564,21 +484,114 @@ export default function AdminPanel() {
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -10 }}
-                className="space-y-6"
+                className="space-y-12"
               >
-                <h2 className="text-2xl font-display font-black tracking-tighter">MÉTRICAS DE <span className="text-purple-500">REFERIDOS.</span></h2>
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                  <div className="p-8 bg-purple-600/10 border border-purple-500/20 rounded-[40px] text-center space-y-2">
-                    <div className="text-5xl font-black tracking-tighter text-purple-500">{referralStats.totalUsers}</div>
-                    <div className="text-[10px] font-black uppercase tracking-widest text-purple-400">Usuarios Registrados</div>
+                <div className="space-y-6">
+                  <h2 className="text-2xl font-display font-black tracking-tighter">MÉTRICAS DE <span className="text-purple-500">REFERIDOS.</span></h2>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    <div className="p-8 bg-purple-600/10 border border-purple-500/20 rounded-[40px] text-center space-y-2">
+                      <div className="text-5xl font-black tracking-tighter text-purple-500">{referralStats.totalUsers}</div>
+                      <div className="text-[10px] font-black uppercase tracking-widest text-purple-400">Usuarios Registrados</div>
+                    </div>
+                    <div className="p-8 bg-amber-600/10 border border-amber-500/20 rounded-[40px] text-center space-y-2">
+                      <div className="text-5xl font-black tracking-tighter text-amber-500">${referralStats.totalRewards.toFixed(2)}</div>
+                      <div className="text-[10px] font-black uppercase tracking-widest text-amber-400">Créditos Otorgados</div>
+                    </div>
+                    <div className="p-8 bg-purple-600/20 border border-purple-500/30 rounded-[40px] text-center space-y-2">
+                      <div className="text-5xl font-black tracking-tighter text-purple-400">{referralStats.totalPoints}</div>
+                      <div className="text-[10px] font-black uppercase tracking-widest text-purple-300">Puntos Tyango Totales</div>
+                    </div>
                   </div>
-                  <div className="p-8 bg-amber-600/10 border border-amber-500/20 rounded-[40px] text-center space-y-2">
-                    <div className="text-5xl font-black tracking-tighter text-amber-500">${referralStats.totalRewards.toFixed(2)}</div>
-                    <div className="text-[10px] font-black uppercase tracking-widest text-amber-400">Créditos Otorgados</div>
+                </div>
+
+                {/* Ambassador Summary Section */}
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 pt-8 border-t border-white/5">
+                  {/* Commissions Table */}
+                  <div className="space-y-4">
+                    <h3 className="text-sm font-black uppercase tracking-widest text-white/40 flex items-center gap-2">
+                      <Users size={14} /> Comisiones Pendientes
+                    </h3>
+                    {(() => {
+                      const ambassadors: Record<string, { count: number, total: number }> = {};
+                      orders.forEach(o => {
+                        if (o.ambassador && o.status !== 'cancelled') {
+                          if (!ambassadors[o.ambassador]) {
+                            ambassadors[o.ambassador] = { count: 0, total: 0 };
+                          }
+                          ambassadors[o.ambassador].count += 1;
+                          ambassadors[o.ambassador].total += (o.commissionOwed || 0);
+                        }
+                      });
+
+                      const ambassadorList = Object.entries(ambassadors);
+                      if (ambassadorList.length === 0) {
+                        return (
+                          <div className="bg-[#111] border border-white/10 rounded-[32px] p-8 text-center text-[10px] font-black uppercase tracking-widest text-white/20">
+                            No hay comisiones por pagar
+                          </div>
+                        );
+                      }
+
+                      return (
+                        <div className="bg-[#111] border border-white/10 rounded-[32px] overflow-hidden shadow-2xl">
+                          <table className="w-full text-left">
+                            <thead className="bg-white/5 border-b border-white/10">
+                              <tr>
+                                <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-white/40">Embajador</th>
+                                <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-white/40 text-center">Pedidos</th>
+                                <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-white/40 text-right">A pagar</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-white/5">
+                              {ambassadorList.map(([name, data]) => (
+                                <tr key={name} className="hover:bg-white/[0.02] transition-colors">
+                                  <td className="px-6 py-4">
+                                    <div className="text-xs font-black uppercase tracking-tight text-purple-400">{name}</div>
+                                  </td>
+                                  <td className="px-6 py-4 text-xs font-bold text-center">{data.count}</td>
+                                  <td className="px-6 py-4 text-right text-sm font-black text-amber-500">${data.total.toFixed(2)}</td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      );
+                    })()}
                   </div>
-                  <div className="p-8 bg-purple-600/20 border border-purple-500/30 rounded-[40px] text-center space-y-2">
-                    <div className="text-5xl font-black tracking-tighter text-purple-400">{referralStats.totalPoints}</div>
-                    <div className="text-[10px] font-black uppercase tracking-widest text-purple-300">Puntos Tyango Totales</div>
+
+                  {/* Constants Codes Table */}
+                  <div className="space-y-4">
+                    <h3 className="text-sm font-black uppercase tracking-widest text-white/40 flex items-center gap-2">
+                      <Ticket size={14} /> Códigos Activos (Constants)
+                    </h3>
+                    <div className="bg-[#111] border border-white/10 rounded-[32px] overflow-hidden shadow-2xl max-h-[400px] overflow-y-auto custom-scroll">
+                      <table className="w-full text-left border-collapse">
+                        <thead className="bg-white/5 border-b border-white/10 sticky top-0 z-10 backdrop-blur-md">
+                          <tr>
+                            <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-white/40">Código</th>
+                            <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-white/40">Embajador</th>
+                            <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-white/40 text-right">Dcto</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-white/5">
+                          {Object.entries(referralCodes).map(([code, config]) => (
+                            <tr key={code} className="hover:bg-white/[0.02] transition-colors">
+                              <td className="px-6 py-4">
+                                <code className="text-xs font-black tracking-widest text-white bg-white/5 px-2 py-1 rounded">{code}</code>
+                              </td>
+                              <td className="px-6 py-4">
+                                <span className="text-[10px] font-bold uppercase tracking-widest text-white/40">
+                                  {config.ambassador || "—"}
+                                </span>
+                              </td>
+                              <td className="px-6 py-4 text-right">
+                                <span className="text-xs font-black text-amber-500">{config.value}{config.type === 'pct' ? '%' : '$'}</span>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
                   </div>
                 </div>
 

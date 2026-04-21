@@ -952,7 +952,33 @@ export default function App() {
   };
 
   const confirmOrder = () => {
-    if (cart.length === 0) return;
+    // If there's an item currently being built, add it to cart automatically
+    if (selectedFruits.length > 0) {
+      const newItem: CartItem = {
+        id: `direct_${Date.now()}`,
+        fruits: [...selectedFruits],
+        toppings: [...selectedToppings],
+        size: selectedSize,
+        quantity,
+        price: parseFloat(totalPrice)
+      };
+      
+      setCart(prev => [...prev, newItem]);
+      // Reset builder state
+      setSelectedFruits([]);
+      setSelectedToppings([]);
+      setQuantity(1);
+      
+      // We'll show the modal. Since state updates are async, 
+      // the modal below will render with the updated cart in the next cycle.
+    } else if (cart.length === 0) {
+      // If no current selection and nothing in cart
+      setToastMsg("Agrega algo a tu pedido primero 🍓");
+      setShowToast(true);
+      setTimeout(() => setShowToast(false), 3000);
+      return;
+    }
+    
     setShowReviewModal(true);
   };
 
@@ -983,8 +1009,7 @@ export default function App() {
     }).join("\n");
 
     const totalCartPrice = cart.reduce((acc, item) => acc + item.price, 0);
-    const disc = discountPct > 0 ? totalCartPrice * (discountPct / 100) : 0;
-    const finalTotal = (totalCartPrice - disc).toFixed(2);
+    const finalTotal = totalCartPrice.toFixed(2);
     
     const deliveryTimeLine = deliveryTime ? `⏰ Horario preferido: ${deliveryTime}\n` : "";
     const deliveryAddressLine = `📍 Dirección: ${deliveryAddress || "Por coordinar en chat"}\n`;
@@ -1057,7 +1082,7 @@ export default function App() {
     const totalToPay = cart.reduce((acc, i) => acc + i.price, 0);
 
     const commissionOwed = appliedAmbassador 
-      ? (selectedSize === 'mini' ? 0.20 : 0.25) 
+      ? cart.reduce((acc, item) => acc + (item.size === 'mini' ? 0.20 : 0.25), 0)
       : 0;
 
     const newOrder = {
@@ -2981,36 +3006,53 @@ export default function App() {
                 <p className="text-xs font-medium text-white/40 italic">Confirma los detalles antes de ir a WhatsApp.</p>
 
                 <div className="space-y-6 bg-white/5 border border-white/10 rounded-3xl p-6">
-                  <div className="space-y-4">
-                    <div className="flex justify-between items-start">
-                      <div className="text-[10px] font-black uppercase tracking-widest text-white/40">Frutas</div>
-                      <div className="text-right text-sm font-bold">{selectedFruits.map(f => `${f.emoji} ${f.name}`).join(" + ")}</div>
-                    </div>
-                    <div className="flex justify-between items-start">
-                      <div className="text-[10px] font-black uppercase tracking-widest text-white/40">Aderezos</div>
-                      <div className="text-right text-sm font-bold">{selectedToppings.length > 0 ? selectedToppings.map(t => t.name).join(", ") : "Sin aderezos"}</div>
-                    </div>
-                    <div className="flex justify-between items-center">
-                      <div className="text-[10px] font-black uppercase tracking-widest text-white/40">Tamaño</div>
-                      <div className="text-sm font-bold">{dynamicSizes[selectedSize].label} ({dynamicSizes[selectedSize].weight}g)</div>
-                    </div>
-                    <div className="flex justify-between items-center">
-                      <div className="text-[10px] font-black uppercase tracking-widest text-white/40">Cantidad</div>
-                      <div className="text-sm font-bold">{quantity} unidades</div>
-                    </div>
-                    <div className="flex justify-between items-center">
-                      <div className="text-[10px] font-black uppercase tracking-widest text-white/40">Peso Total</div>
-                      <div className="text-sm font-bold text-purple-400">{totalWeight}g</div>
-                    </div>
+                  <div className="space-y-6 max-h-[300px] overflow-y-auto custom-scroll pr-2">
+                    {cart.map((item, index) => (
+                      <div key={item.id} className={`${index !== 0 ? 'pt-6 border-t border-white/10' : ''} space-y-3`}>
+                        <div className="flex justify-between items-start gap-4">
+                          <div className="flex-1">
+                            <div className="text-[10px] font-black uppercase tracking-widest text-purple-400 mb-1">
+                              {dynamicSizes[item.size].label} · {item.quantity} unidades
+                            </div>
+                            <div className="text-sm font-black text-white leading-tight">
+                              {item.fruits.map(f => f.name).join(" + ")}
+                            </div>
+                          </div>
+                          <div className="text-right">
+                            <div className="text-sm font-black text-amber-500">${item.price.toFixed(2)}</div>
+                          </div>
+                        </div>
+                        
+                        <div className="flex flex-wrap gap-2">
+                          <div className="text-[9px] font-black uppercase tracking-widest text-white/20 bg-white/5 px-2 py-1 rounded-md">
+                            Aderezos: {item.toppings.length > 0 ? item.toppings.map(t => t.name).join(", ") : "Sin aderezos"}
+                          </div>
+                          <div className="text-[9px] font-black uppercase tracking-widest text-white/20 bg-white/5 px-2 py-1 rounded-md">
+                            {dynamicSizes[item.size].weight * item.quantity}g total
+                          </div>
+                        </div>
+                      </div>
+                    ))}
                   </div>
 
                   <div className="pt-6 border-t border-white/10 flex justify-between items-end">
-                    <div className="text-[10px] font-black uppercase tracking-widest text-white/40 mb-1">Total a pagar</div>
-                    <div className="flex items-baseline text-white">
-                      <span className="text-xl font-black align-super mr-0.5 text-white/60">$</span>
-                      <span className="text-5xl font-black tracking-tighter tabular-nums" style={{ fontVariantNumeric: 'tabular-nums' }}>{intPart}</span>
-                      <span className="text-2xl font-black text-white/60 align-super">.{decPart}</span>
+                    <div>
+                      <div className="text-[10px] font-black uppercase tracking-widest text-white/40 mb-1">Total a pagar</div>
+                      <div className="text-[9px] font-bold text-white/20 italic">
+                        {cart.length} {cart.length === 1 ? 'ítem' : 'ítems'} en tu pedido
+                      </div>
                     </div>
+                    {(() => {
+                      const totalCartValue = cart.reduce((acc, item) => acc + item.price, 0);
+                      const [cartInt, cartDec] = totalCartValue.toFixed(2).split('.');
+                      return (
+                        <div className="flex items-baseline text-white">
+                          <span className="text-xl font-black align-super mr-0.5 text-white/60">$</span>
+                          <span className="text-5xl font-black tracking-tighter tabular-nums" style={{ fontVariantNumeric: 'tabular-nums' }}>{cartInt}</span>
+                          <span className="text-2xl font-black text-white/60 align-super">.{cartDec}</span>
+                        </div>
+                      );
+                    })()}
                   </div>
                 </div>
 
