@@ -139,5 +139,16 @@ service cloud.firestore {
       allow read: if true;
       allow write: if isAdmin();
     }
+
+    match /delivery_slots/{dia} {
+      allow read: if true;
+      allow write: if isAdmin();
+      // Allow atomic updates of cuposUsados for customers
+      allow update: if (
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['cuposUsados']) &&
+        request.resource.data.cuposUsados == resource.data.cuposUsados + 1 &&
+        resource.data.cuposUsados < resource.data.cuposTotal
+      );
+    }
   }
 }

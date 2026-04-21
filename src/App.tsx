@@ -28,6 +28,8 @@ import {
   Check
 } from "lucide-react";
 import { db } from "./lib/firebase";
+import { DeliverySlotSelector } from "./components/DeliverySlotSelector";
+import { useDeliverySlots } from "./hooks/useDeliverySlots";
 import { 
   collection, 
   doc, 
@@ -384,6 +386,42 @@ export default function App() {
   const [cart, setCart] = useState<CartItem[]>([]);
   const [showCart, setShowCart] = useState<boolean>(false);
   const [isPreparing, setIsPreparing] = useState<boolean>(false);
+  const { reservarCupo, nextAvailable, slots: deliverySlots } = useDeliverySlots();
+  const [selectedDeliverySlot, setSelectedDeliverySlot] = useState<"miercoles" | "viernes" | null>(null);
+
+  const miercolesSlot = deliverySlots['miercoles'];
+  const viernesSlot = deliverySlots['viernes'];
+  const [ambosAgotados, setAmbosAgotados] = useState(false);
+  const [slotMiercoles, setSlotMiercoles] = useState({ cuposTotal: 50, cuposUsados: 0, soldOut: false });
+  const [slotViernes, setSlotViernes] = useState({ cuposTotal: 50, cuposUsados: 0, soldOut: false });
+
+  useEffect(() => {
+    const unsubM = onSnapshot(doc(db, "delivery_slots", "miercoles"), (snap) => {
+      if (snap.exists()) {
+        const d = snap.data();
+        setSlotMiercoles({
+          cuposTotal: d.cuposTotal || 50,
+          cuposUsados: d.cuposUsados || 0,
+          soldOut: (d.cuposUsados || 0) >= (d.cuposTotal || 50)
+        });
+      }
+    });
+    const unsubV = onSnapshot(doc(db, "delivery_slots", "viernes"), (snap) => {
+      if (snap.exists()) {
+        const d = snap.data();
+        setSlotViernes({
+          cuposTotal: d.cuposTotal || 50,
+          cuposUsados: d.cuposUsados || 0,
+          soldOut: (d.cuposUsados || 0) >= (d.cuposTotal || 50)
+        });
+      }
+    });
+    return () => { unsubM(); unsubV(); };
+  }, []);
+
+  useEffect(() => {
+    setAmbosAgotados(slotMiercoles.soldOut && slotViernes.soldOut);
+  }, [slotMiercoles.soldOut, slotViernes.soldOut]);
   const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
   const [splash, setSplash] = useState<{ color: string; x: number; y: number } | null>(null);
 
@@ -988,6 +1026,13 @@ export default function App() {
   };
 
   const finalizeWhatsAppRedirect = async () => {
+    if (!selectedDeliverySlot) {
+      setToastMsg("Por favor selecciona un día de entrega 📅");
+      setShowToast(true);
+      setTimeout(() => setShowToast(false), 3000);
+      return;
+    }
+
     if (!userPhone || userPhone.length < 9) {
       setToastMsg("Por favor ingresa tu WhatsApp para tus puntos 📱");
       setShowToast(true);
@@ -997,6 +1042,15 @@ export default function App() {
 
     setIsPreparing(true);
     setShowPaymentModal(false);
+
+    const cupoReservado = await reservarCupo(selectedDeliverySlot);
+    if (!cupoReservado) {
+      setToastMsg("¡Lo sentimos! Ese día ya no tiene cupos disponibles. Elige otro día.");
+      setShowToast(true);
+      setTimeout(() => setShowToast(false), 4000);
+      setIsPreparing(false);
+      return;
+    }
 
     // Show success animation first
     setShowOrderSuccessAnimation(true);
@@ -1013,6 +1067,8 @@ export default function App() {
     
     const deliveryTimeLine = deliveryTime ? `⏰ Horario preferido: ${deliveryTime}\n` : "";
     const deliveryAddressLine = `📍 Dirección: ${deliveryAddress || "Por coordinar en chat"}\n`;
+    const slotLabel = selectedDeliverySlot === 'miercoles' ? 'Miércoles' : 'Viernes';
+    const deliveryLine = `📅 Día de entrega: ${slotLabel} desde las 10:00am\n`;
     const loyaltyLine = loyaltyFreeTopping ? "🎁 Aderezo extra GRATIS (canje de puntos)\n" : "";
     const ambassadorLine = appliedAmbassador ? `🎖️ Embajador: ${appliedAmbassador}\n` : "";
 
@@ -1022,7 +1078,7 @@ export default function App() {
       `💜 Total: $${finalTotal}\n` +
       loyaltyLine +
       ambassadorLine +
-      deliveryTimeLine +
+      deliveryLine +
       deliveryAddressLine +
       `🏦 Pago: Transferencia Banco Pichincha\n` +
       `📱 WhatsApp: ${userPhone}\n\n` +
@@ -1093,7 +1149,9 @@ export default function App() {
       total: totalToPay,
       date: new Date().toISOString(),
       ambassador: appliedAmbassador || null,
-      commissionOwed: commissionOwed
+      commissionOwed: commissionOwed,
+      deliverySlot: selectedDeliverySlot,
+      deliveryDay: selectedDeliverySlot === 'miercoles' ? 'Miércoles' : 'Viernes'
     };
 
     // Save to Firestore for Admin (Central Registry)
@@ -1555,6 +1613,41 @@ export default function App() {
         </AnimatePresence>
       </div>
 
+      {/* Delivery Status Banner */}
+      <div className="fixed top-[110px] sm:top-[130px] left-0 right-0 z-39 flex justify-center pointer-events-none">
+        <AnimatePresence mode="wait">
+          {ambosAgotados ? (
+            <motion.div
+              key="soldout"
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 10 }}
+              className="bg-red-500/10 backdrop-blur-md border border-red-500/20 px-6 py-2 rounded-full flex items-center gap-3 shadow-2xl"
+            >
+              <X size={12} className="text-red-400" />
+              <span className="text-[10px] font-black uppercase tracking-widest text-red-400">
+                Cupos agotados esta semana — vuelve el próximo miércoles
+              </span>
+            </motion.div>
+          ) : (
+            <motion.div
+              key="available"
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 10 }}
+              className="bg-white/5 backdrop-blur-md border border-white/10 px-6 py-2 rounded-full flex items-center gap-3 shadow-2xl"
+            >
+              <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
+              <span className="text-[10px] font-black uppercase tracking-widest text-white/60">
+                Entregas: Miércoles y Viernes · 10:00am · 
+                {miercolesSlot && !miercolesSlot.soldOut && ` Miér: ${miercolesSlot.cuposRestantes} cupos`}
+                {viernesSlot && !viernesSlot.soldOut && ` · Vier: ${viernesSlot.cuposRestantes} cupos`}
+              </span>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
+
       {/* Sticky Progress Bar */}
       <AnimatePresence>
         {showProgress && (
@@ -1880,6 +1973,369 @@ export default function App() {
             </motion.button>
           </div>
         </motion.div>
+      </section>
+
+      {/* DÍAS DE ENTREGA SECTION */}
+      <section id="entregas" className="py-20 px-6 relative z-10">
+        <div className="max-w-4xl mx-auto">
+
+          {/* Título */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            className="text-center mb-12"
+          >
+            <div className="inline-flex items-center gap-2 px-4 py-1.5 bg-white/5 border border-white/10 rounded-full mb-6">
+              <span className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse" />
+              <span className="text-[10px] font-black uppercase tracking-[0.2em] text-green-400/80">
+                Disponibilidad esta semana
+              </span>
+            </div>
+            <h2 className="text-4xl md:text-5xl font-display font-black tracking-tighter mb-4">
+              DÍAS DE <span className="text-purple-500">ENTREGA.</span>
+            </h2>
+            <p className="text-white/40 font-medium text-sm max-w-md mx-auto">
+              Abrimos cupos dos veces por semana. Cuando se agotan, se agotan.
+            </p>
+          </motion.div>
+
+          {/* Cards de días */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-10">
+
+            {/* MIÉRCOLES */}
+            {(() => {
+              const restantes = slotMiercoles.cuposTotal - slotMiercoles.cuposUsados;
+              const pct = (slotMiercoles.cuposUsados / slotMiercoles.cuposTotal) * 100;
+              const urgente = restantes <= 15 && !slotMiercoles.soldOut;
+              const muyUrgente = restantes <= 5 && !slotMiercoles.soldOut;
+              return (
+                <motion.div
+                  initial={{ opacity: 0, y: 20 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  viewport={{ once: true }}
+                  transition={{ delay: 0.1 }}
+                  className={`relative p-8 rounded-[32px] border overflow-hidden transition-all ${
+                    slotMiercoles.soldOut
+                      ? "bg-white/[0.02] border-white/5"
+                      : urgente
+                        ? "bg-orange-500/5 border-orange-500/20"
+                        : "bg-white/5 border-white/10"
+                  }`}
+                >
+                  {/* Sold Out Overlay */}
+                  {slotMiercoles.soldOut && (
+                    <div className="absolute inset-0 flex items-center justify-center bg-black/60 backdrop-blur-sm rounded-[32px] z-10">
+                      <div className="text-center space-y-3">
+                        <div className="text-5xl font-black tracking-tighter text-red-400">SOLD OUT</div>
+                        <div className="text-[10px] font-black uppercase tracking-widest text-white/40">
+                          Cupos agotados · Próxima semana
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Header del día */}
+                  <div className="flex items-start justify-between mb-6">
+                    <div>
+                      <div className="text-[10px] font-black uppercase tracking-widest text-white/30 mb-1">
+                        Día de entrega
+                      </div>
+                      <div className="text-4xl font-display font-black tracking-tighter text-white">
+                        Miércoles
+                      </div>
+                      <div className="text-sm font-bold text-white/40 mt-1">
+                        Desde las 10:00am
+                      </div>
+                    </div>
+                    <div className={`w-14 h-14 rounded-2xl flex items-center justify-center text-2xl ${
+                      slotMiercoles.soldOut ? "bg-white/5" : urgente ? "bg-orange-500/10" : "bg-purple-500/10"
+                    }`}>
+                      📦
+                    </div>
+                  </div>
+
+                  {/* Contador de cupos */}
+                  <div className="mb-4">
+                    <div className="flex justify-between items-end mb-2">
+                      <div>
+                        <div className={`text-5xl font-black tracking-tighter ${
+                          muyUrgente ? "text-red-400" : urgente ? "text-orange-400" : "text-white"
+                        }`}>
+                          {Math.max(0, restantes)}
+                        </div>
+                        <div className="text-[10px] font-black uppercase tracking-widest text-white/30">
+                          cupos disponibles
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <div className="text-2xl font-black text-white/20">
+                          {slotMiercoles.cuposUsados}
+                        </div>
+                        <div className="text-[9px] font-bold uppercase tracking-widest text-white/20">
+                          reservados
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Barra de progreso */}
+                    <div className="h-2 w-full bg-white/5 rounded-full overflow-hidden">
+                      <motion.div
+                        initial={{ width: 0 }}
+                        animate={{ width: `${Math.min(100, pct)}%` }}
+                        transition={{ duration: 1, ease: "easeOut" }}
+                        className={`h-full rounded-full transition-colors ${
+                          slotMiercoles.soldOut ? "bg-red-500" :
+                          muyUrgente ? "bg-red-500" :
+                          urgente ? "bg-orange-500" : "bg-purple-500"
+                        }`}
+                      />
+                    </div>
+
+                    {/* Indicadores de cupos visuales — 10 bloques */}
+                    <div className="grid grid-cols-10 gap-1 mt-3">
+                      {[...Array(10)].map((_, i) => {
+                        const bloqueOcupado = (i + 1) * 5 <= slotMiercoles.cuposUsados;
+                        return (
+                          <motion.div
+                            key={i}
+                            initial={{ scale: 0 }}
+                            animate={{ scale: 1 }}
+                            transition={{ delay: i * 0.03 }}
+                            className={`h-2 rounded-full transition-all ${
+                              bloqueOcupado
+                                ? slotMiercoles.soldOut ? "bg-red-500/60" : "bg-purple-500/60"
+                                : "bg-white/10"
+                            }`}
+                          />
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* Badge de urgencia */}
+                  {muyUrgente && !slotMiercoles.soldOut && (
+                    <motion.div
+                      animate={{ scale: [1, 1.02, 1] }}
+                      transition={{ repeat: Infinity, duration: 1.5 }}
+                      className="flex items-center gap-2 px-4 py-2 bg-red-500/10 border border-red-500/20 rounded-xl"
+                    >
+                      <div className="w-1.5 h-1.5 bg-red-500 rounded-full animate-ping" />
+                      <span className="text-[9px] font-black uppercase tracking-widest text-red-400">
+                        ¡Solo quedan {restantes} cupos!
+                      </span>
+                    </motion.div>
+                  )}
+                  {urgente && !muyUrgente && (
+                    <div className="flex items-center gap-2 px-4 py-2 bg-orange-500/10 border border-orange-500/20 rounded-xl">
+                      <div className="w-1.5 h-1.5 bg-orange-500 rounded-full animate-pulse" />
+                      <span className="text-[9px] font-black uppercase tracking-widest text-orange-400">
+                        Quedan pocos cupos — ¡pide pronto!
+                      </span>
+                    </div>
+                  )}
+                  {!urgente && !slotMiercoles.soldOut && (
+                    <div className="flex items-center gap-2 px-4 py-2 bg-green-500/10 border border-green-500/20 rounded-xl">
+                      <div className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse" />
+                      <span className="text-[9px] font-black uppercase tracking-widest text-green-400">
+                        Cupos disponibles
+                      </span>
+                    </div>
+                  )}
+                </motion.div>
+              );
+            })()}
+
+            {/* VIERNES */}
+            {(() => {
+              const restantes = slotViernes.cuposTotal - slotViernes.cuposUsados;
+              const pct = (slotViernes.cuposUsados / slotViernes.cuposTotal) * 100;
+              const urgente = restantes <= 15 && !slotViernes.soldOut;
+              const muyUrgente = restantes <= 5 && !slotViernes.soldOut;
+              return (
+                <motion.div
+                  initial={{ opacity: 0, y: 20 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  viewport={{ once: true }}
+                  transition={{ delay: 0.2 }}
+                  className={`relative p-8 rounded-[32px] border overflow-hidden transition-all ${
+                    slotViernes.soldOut
+                      ? "bg-white/[0.02] border-white/5"
+                      : urgente
+                        ? "bg-orange-500/5 border-orange-500/20"
+                        : "bg-white/5 border-amber-500/20"
+                  }`}
+                >
+                  {/* Sold Out Overlay */}
+                  {slotViernes.soldOut && (
+                    <div className="absolute inset-0 flex items-center justify-center bg-black/60 backdrop-blur-sm rounded-[32px] z-10">
+                      <div className="text-center space-y-3">
+                        <div className="text-5xl font-black tracking-tighter text-red-400">SOLD OUT</div>
+                        <div className="text-[10px] font-black uppercase tracking-widest text-white/40">
+                          Cupos agotados · Próxima semana
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Header del día */}
+                  <div className="flex items-start justify-between mb-6">
+                    <div>
+                      <div className="text-[10px] font-black uppercase tracking-widest text-white/30 mb-1">
+                        Día de entrega
+                      </div>
+                      <div className="text-4xl font-display font-black tracking-tighter text-white">
+                        Viernes
+                      </div>
+                      <div className="text-sm font-bold text-white/40 mt-1">
+                        Desde las 10:00am
+                      </div>
+                    </div>
+                    <div className={`w-14 h-14 rounded-2xl flex items-center justify-center text-2xl ${
+                      slotViernes.soldOut ? "bg-white/5" : urgente ? "bg-orange-500/10" : "bg-amber-500/10"
+                    }`}>
+                      🛵
+                    </div>
+                  </div>
+
+                  {/* Contador de cupos */}
+                  <div className="mb-4">
+                    <div className="flex justify-between items-end mb-2">
+                      <div>
+                        <div className={`text-5xl font-black tracking-tighter ${
+                          muyUrgente ? "text-red-400" : urgente ? "text-orange-400" : "text-amber-400"
+                        }`}>
+                          {Math.max(0, restantes)}
+                        </div>
+                        <div className="text-[10px] font-black uppercase tracking-widest text-white/30">
+                          cupos disponibles
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <div className="text-2xl font-black text-white/20">
+                          {slotViernes.cuposUsados}
+                        </div>
+                        <div className="text-[9px] font-bold uppercase tracking-widest text-white/20">
+                          reservados
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Barra de progreso */}
+                    <div className="h-2 w-full bg-white/5 rounded-full overflow-hidden">
+                      <motion.div
+                        initial={{ width: 0 }}
+                        animate={{ width: `${Math.min(100, pct)}%` }}
+                        transition={{ duration: 1, ease: "easeOut" }}
+                        className={`h-full rounded-full transition-colors ${
+                          slotViernes.soldOut ? "bg-red-500" :
+                          muyUrgente ? "bg-red-500" :
+                          urgente ? "bg-orange-500" : "bg-amber-500"
+                        }`}
+                      />
+                    </div>
+
+                    {/* Indicadores de cupos visuales — 10 bloques */}
+                    <div className="grid grid-cols-10 gap-1 mt-3">
+                      {[...Array(10)].map((_, i) => {
+                        const bloqueOcupado = (i + 1) * 5 <= slotViernes.cuposUsados;
+                        return (
+                          <motion.div
+                            key={i}
+                            initial={{ scale: 0 }}
+                            animate={{ scale: 1 }}
+                            transition={{ delay: i * 0.03 }}
+                            className={`h-2 rounded-full transition-all ${
+                              bloqueOcupado
+                                ? slotViernes.soldOut ? "bg-red-500/60" : "bg-amber-500/60"
+                                : "bg-white/10"
+                            }`}
+                          />
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* Badge de urgencia */}
+                  {muyUrgente && !slotViernes.soldOut && (
+                    <motion.div
+                      animate={{ scale: [1, 1.02, 1] }}
+                      transition={{ repeat: Infinity, duration: 1.5 }}
+                      className="flex items-center gap-2 px-4 py-2 bg-red-500/10 border border-red-500/20 rounded-xl"
+                    >
+                      <div className="w-1.5 h-1.5 bg-red-500 rounded-full animate-ping" />
+                      <span className="text-[9px] font-black uppercase tracking-widest text-red-400">
+                        ¡Solo quedan {restantes} cupos!
+                      </span>
+                    </motion.div>
+                  )}
+                  {urgente && !muyUrgente && (
+                    <div className="flex items-center gap-2 px-4 py-2 bg-orange-500/10 border border-orange-500/20 rounded-xl">
+                      <div className="w-1.5 h-1.5 bg-orange-500 rounded-full animate-pulse" />
+                      <span className="text-[9px] font-black uppercase tracking-widest text-orange-400">
+                        Quedan pocos cupos — ¡pide pronto!
+                      </span>
+                    </div>
+                  )}
+                  {!urgente && !slotViernes.soldOut && (
+                    <div className="flex items-center gap-2 px-4 py-2 bg-green-500/10 border border-green-500/20 rounded-xl">
+                      <div className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse" />
+                      <span className="text-[9px] font-black uppercase tracking-widest text-green-400">
+                        Cupos disponibles
+                      </span>
+                    </div>
+                  )}
+                </motion.div>
+              );
+            })()}
+          </div>
+
+          {/* Banner inferior — ambos agotados */}
+          {slotMiercoles.soldOut && slotViernes.soldOut && (
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              className="p-8 bg-red-500/5 border border-red-500/20 rounded-[32px] text-center space-y-4"
+            >
+              <div className="text-4xl font-display font-black tracking-tighter text-red-400">
+                SOLD OUT 😔
+              </div>
+              <p className="text-white/40 font-medium text-sm">
+                Los cupos de esta semana se agotaron. Vuelve el próximo lunes para reservar tu TYANGO del miércoles o viernes.
+              </p>
+              <div className="flex items-center justify-center gap-2">
+                <div className="w-1.5 h-1.5 bg-purple-500 rounded-full animate-pulse" />
+                <span className="text-[10px] font-black uppercase tracking-widest text-purple-400">
+                  Nuevos cupos cada lunes
+                </span>
+              </div>
+            </motion.div>
+          )}
+
+          {/* CTA hacia el configurador */}
+          {(!slotMiercoles.soldOut || !slotViernes.soldOut) && (
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              className="text-center mt-8"
+            >
+              <motion.a
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                href="#configurar"
+                className="inline-flex items-center gap-3 px-10 py-5 bg-purple-600 hover:bg-purple-500 rounded-full text-[10px] font-black uppercase tracking-widest transition-all shadow-xl shadow-purple-600/20"
+              >
+                <span>Reservar mi cupo ahora</span>
+                <ChevronDown size={14} className="rotate-[-90deg]" />
+              </motion.a>
+              <p className="text-[9px] font-bold text-white/20 uppercase tracking-widest mt-4" id="configurar-hint">
+                El cupo se reserva al confirmar tu pago
+              </p>
+            </motion.div>
+          )}
+
+        </div>
       </section>
 
       {/* Features Section */}
@@ -3132,27 +3588,21 @@ export default function App() {
                   </div>
 
                   <div className="space-y-4">
-                    <div className="text-[10px] font-black uppercase tracking-widest text-white/40">¿Cuándo lo recibes?</div>
-                    <div className="grid grid-cols-2 gap-2">
-                      {[
-                        "Mañana 9am-12pm",
-                        "Mediodía 12pm-3pm",
-                        "Tarde 3pm-6pm",
-                        "Coordinar por WhatsApp"
-                      ].map((time) => (
-                        <button
-                          key={time}
-                          onClick={() => setDeliveryTime(time)}
-                          className={`px-4 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all border ${
-                            deliveryTime === time
-                              ? "bg-purple-600 border-purple-400 text-white shadow-lg shadow-purple-600/40"
-                              : "bg-white/5 border-white/10 text-white/60 hover:bg-white/10"
-                          }`}
-                        >
-                          {time}
-                        </button>
-                      ))}
+                    <div className="text-[10px] font-black uppercase tracking-widest text-white/40">
+                      Elige tu día de entrega
                     </div>
+                    <DeliverySlotSelector
+                      selectedSlot={selectedDeliverySlot}
+                      onSelect={(dia) => {
+                        setSelectedDeliverySlot(dia);
+                        setDeliveryTime(dia === 'miercoles' ? 'Miércoles' : 'Viernes');
+                      }}
+                    />
+                    {!selectedDeliverySlot && (
+                      <p className="text-[9px] font-bold text-amber-400/60 italic">
+                        * Selecciona un día para continuar
+                      </p>
+                    )}
                   </div>
 
                   <div className="flex items-center justify-between">

@@ -76,6 +76,8 @@ export default function AdminPanel() {
   const [referralCodesList, setReferralCodesList] = useState<ReferralCode[]>([]);
   const [usersList, setUsersList] = useState<UserData[]>([]);
   const [referralStats, setReferralStats] = useState({ totalUsers: 0, totalRewards: 0, totalPoints: 0 });
+  const [deliverySlots, setDeliverySlots] = useState<any>({});
+  const [maxSlotsInput, setMaxSlotsInput] = useState<number>(50);
   const [productSettings, setProductSettings] = useState<ProductSettings>({
     mini: true,
     clasico: true,
@@ -149,12 +151,22 @@ export default function AdminPanel() {
       }
     });
 
+    // Listen to delivery slots
+    const unsubDelivery = onSnapshot(collection(db, "delivery_slots"), (snap) => {
+      const slots: any = {};
+      snap.docs.forEach(doc => {
+        slots[doc.id] = doc.data();
+      });
+      setDeliverySlots(slots);
+    });
+
     return () => {
       unsubOrders();
       unsubReviews();
       unsubUsers();
       unsubCodes();
       unsubSettings();
+      unsubDelivery();
     };
   }, [user]);
 
@@ -181,6 +193,33 @@ export default function AdminPanel() {
       await setDoc(settingsRef, { ...productSettings, [key]: newVal });
     } else {
       await updateDoc(settingsRef, { [key]: newVal });
+    }
+  };
+
+  const handleResetSlots = async (dia: "miercoles" | "viernes" | "ambos") => {
+    try {
+      if (dia === "ambos" || dia === "miercoles") {
+        await setDoc(doc(db, "delivery_slots", "miercoles"), {
+          cuposTotal: maxSlotsInput,
+          cuposUsados: 0,
+          activo: true
+        }, { merge: true });
+      }
+      if (dia === "ambos" || dia === "viernes") {
+        await setDoc(doc(db, "delivery_slots", "viernes"), {
+          cuposTotal: maxSlotsInput,
+          cuposUsados: 0,
+          activo: true
+        }, { merge: true });
+      }
+      setToastMsg(`Cupos ${dia === 'ambos' ? 'reseteados' : 'reseteado para ' + dia} ✓`);
+      setShowToast(true);
+      setTimeout(() => setShowToast(false), 3000);
+    } catch (err) {
+      console.error("Error resetting slots:", err);
+      setToastMsg("Error al resetear cupos");
+      setShowToast(true);
+      setTimeout(() => setShowToast(false), 3000);
     }
   };
 
@@ -672,6 +711,78 @@ export default function AdminPanel() {
                         </button>
                       </div>
                     ))}
+                  </div>
+                </div>
+
+                <h2 className="text-2xl font-display font-black tracking-tighter mt-12">CONTROL DE <span className="text-amber-500">CUPOS DELIVERY.</span></h2>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  {["miercoles", "viernes"].map((dia) => {
+                    const data = deliverySlots[dia] || { cuposUsados: 0, cuposTotal: 50 };
+                    const used = data.cuposUsados || 0;
+                    const total = data.cuposTotal || 50;
+                    const pct = (used / total) * 100;
+                    
+                    return (
+                      <div key={dia} className="p-8 bg-[#111] border border-white/10 rounded-[40px] space-y-6">
+                        <div className="flex justify-between items-start">
+                          <div>
+                            <div className="text-sm font-black uppercase tracking-widest text-white">{dia}</div>
+                            <div className="text-[10px] text-white/40 font-bold uppercase mt-1">Capacidad Semanal</div>
+                          </div>
+                          <Clock size={20} className="text-amber-500" />
+                        </div>
+
+                        <div className="flex items-baseline gap-2">
+                          <span className="text-5xl font-black tabular-nums">{used}</span>
+                          <span className="text-xl font-bold text-white/20">/ {total}</span>
+                          <span className="text-[10px] font-black uppercase tracking-widest text-white/40 ml-2">Usados</span>
+                        </div>
+
+                        <div className="space-y-2">
+                          <div className="flex justify-between text-[10px] font-black uppercase tracking-widest text-white/40">
+                            <span>Progreso</span>
+                            <span>{pct.toFixed(0)}%</span>
+                          </div>
+                          <div className="h-2 w-full bg-white/5 rounded-full overflow-hidden">
+                            <motion.div 
+                              initial={{ width: 0 }}
+                              animate={{ width: `${pct}%` }}
+                              className="h-full bg-amber-500 rounded-full"
+                            />
+                          </div>
+                        </div>
+
+                        <button
+                          onClick={() => handleResetSlots(dia as "miercoles" | "viernes")}
+                          className="w-full py-4 bg-white/5 hover:bg-white/10 border border-white/10 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all"
+                        >
+                          Resetear {dia}
+                        </button>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                <div className="p-8 bg-[#111] border border-white/10 rounded-[40px] mt-6 flex flex-col md:flex-row items-center gap-6">
+                  <div className="flex-1 space-y-4 w-full">
+                    <div className="text-[10px] font-black uppercase tracking-widest text-white/40">Configuración rápida</div>
+                    <div className="flex flex-col md:flex-row gap-4">
+                      <div className="flex-1 space-y-2">
+                        <div className="text-[9px] font-bold text-white/20 uppercase tracking-widest">Nuevos cupos totales</div>
+                        <input 
+                          type="number"
+                          value={maxSlotsInput}
+                          onChange={(e) => setMaxSlotsInput(parseInt(e.target.value) || 0)}
+                          className="w-full bg-black border border-white/10 rounded-2xl px-6 py-4 text-sm font-bold focus:outline-none focus:border-amber-500 transition-colors"
+                        />
+                      </div>
+                      <button
+                        onClick={() => handleResetSlots("ambos")}
+                        className="md:self-end py-4 px-10 bg-amber-500 hover:bg-amber-400 text-black rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all shadow-xl shadow-amber-500/20"
+                      >
+                        Resetear Ambos a {maxSlotsInput}
+                      </button>
+                    </div>
                   </div>
                 </div>
               </motion.div>
