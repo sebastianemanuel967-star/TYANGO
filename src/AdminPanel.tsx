@@ -3,6 +3,7 @@ import { db, auth, googleProvider } from "./lib/firebase";
 import { signInWithPopup, onAuthStateChanged, User, signOut } from "firebase/auth";
 import { collection, onSnapshot, query, orderBy, limit, doc, updateDoc, setDoc, getDoc, deleteDoc } from "firebase/firestore";
 import { motion, AnimatePresence } from "motion/react";
+import { referralCodes } from "./constants";
 import { 
   Package, 
   Star, 
@@ -19,7 +20,8 @@ import {
   RefreshCw,
   Lock,
   Trash2,
-  CheckCircle2
+  CheckCircle2,
+  Ticket
 } from "lucide-react";
 
 const ADMIN_EMAIL = "sebastianemanuel967@gmail.com";
@@ -339,71 +341,98 @@ export default function AdminPanel() {
                 className="space-y-4"
               >
                 <h2 className="text-2xl font-display font-black tracking-tighter">ÚLTIMOS <span className="text-purple-500">PEDIDOS.</span></h2>
-                <div className="space-y-3">
-                  {orders.length > 0 ? orders.map((order) => (
-                    <div key={order.id} className="p-6 bg-[#111] border border-white/10 rounded-[32px] flex flex-col md:flex-row md:items-center justify-between gap-6">
-                      <div className="space-y-2">
-                        <div className="flex items-center gap-3">
-                          <span className="text-[10px] font-black uppercase tracking-widest text-purple-400">
-                            {new Date(order.date).toLocaleString('es-EC')}
-                          </span>
-                          {order.phone && (
-                            <span className="text-[10px] font-black uppercase tracking-widest text-amber-500">
-                              📱 {order.phone}
-                            </span>
-                          )}
-                          <span className={`px-2 py-0.5 rounded-full text-[8px] font-black uppercase tracking-widest ${
-                            order.status === 'completed' ? 'bg-green-500/10 text-green-500' : 'bg-amber-500/10 text-amber-500'
-                          }`}>
-                            {order.status || 'pending'}
-                          </span>
-                          {order.ambassador && (
-                            <div className="flex items-center gap-2">
-                              <span className="text-[10px] font-black uppercase tracking-widest text-purple-400">
-                                🎖️ {order.ambassador}
+                <div className="bg-[#111] border border-white/10 rounded-[32px] overflow-hidden shadow-2xl">
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left border-collapse">
+                      <thead className="bg-white/5 border-b border-white/10">
+                        <tr>
+                          <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-white/40">Fecha / Cliente</th>
+                          <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-white/40">Detalle</th>
+                          <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-white/40">Total</th>
+                          <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-white/40">Embajador</th>
+                          <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-white/40">Estado</th>
+                          <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-white/40 text-right">Acciones</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-white/5">
+                        {orders.length > 0 ? orders.map((order) => (
+                          <tr key={order.id} className="hover:bg-white/[0.02] transition-colors">
+                            <td className="px-6 py-4">
+                              <div className="space-y-1">
+                                <div className="text-[10px] font-black uppercase tracking-widest text-purple-400">
+                                  {new Date(order.date).toLocaleString('es-EC', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}
+                                </div>
+                                {order.phone && (
+                                  <div className="text-[10px] font-bold text-amber-500">
+                                    📱 {order.phone}
+                                  </div>
+                                )}
+                              </div>
+                            </td>
+                            <td className="px-6 py-4">
+                              <div className="text-xs font-bold leading-tight max-w-[200px] truncate" title={order.itemsSummary}>
+                                {order.itemsSummary}
+                              </div>
+                              <div className="text-[8px] font-medium text-white/20 mt-1 uppercase">Items: {order.itemCount}</div>
+                            </td>
+                            <td className="px-6 py-4">
+                              <div className="text-sm font-black text-white">${order.total.toFixed(2)}</div>
+                            </td>
+                            <td className="px-6 py-4">
+                              {order.ambassador ? (
+                                <div className="space-y-1">
+                                  <div className="text-[10px] font-black uppercase tracking-widest text-purple-400 flex items-center gap-1">
+                                    <Star size={10} fill="currentColor" /> {order.ambassador}
+                                  </div>
+                                  <div className="text-[10px] font-black text-amber-500">
+                                    +${(order.commissionOwed || 0).toFixed(2)}
+                                  </div>
+                                </div>
+                              ) : (
+                                <span className="text-[10px] font-black text-white/10 uppercase tracking-widest">—</span>
+                              )}
+                            </td>
+                            <td className="px-6 py-4">
+                              <span className={`px-2 py-0.5 rounded-full text-[8px] font-black uppercase tracking-widest ${
+                                order.status === 'completed' ? 'bg-green-500/10 text-green-500' : 
+                                order.status === 'cancelled' ? 'bg-red-500/10 text-red-500' : 'bg-amber-500/10 text-amber-500'
+                              }`}>
+                                {order.status || 'pending'}
                               </span>
-                              <span className="text-[10px] font-black tracking-widest text-amber-500">
-                                +${(order.commissionOwed || 0).toFixed(2)}
-                              </span>
-                            </div>
-                          )}
-                        </div>
-                        <div className="text-lg font-bold leading-tight whitespace-pre-line">{order.itemsSummary}</div>
-                        <div className="text-[10px] font-medium text-white/40">Cantidad: {order.itemCount} {order.itemCount === 1 ? 'producto' : 'productos'}</div>
-                      </div>
-                      <div className="flex items-center gap-8">
-                        <div className="text-right">
-                          <div className="text-[10px] font-black uppercase tracking-widest text-white/30">Total</div>
-                          <div className="text-2xl font-black tracking-tighter text-amber-500">${order.total.toFixed(2)}</div>
-                        </div>
-                        <div className="flex gap-2">
-                          <button 
-                            onClick={() => updateOrderStatus(order.id, "completed")}
-                            title="Completar"
-                            className="p-3 bg-green-500/10 hover:bg-green-500 text-green-500 hover:text-white border border-green-500/20 rounded-2xl transition-all"
-                          >
-                            <CheckCircle size={20} />
-                          </button>
-                          <button 
-                            onClick={() => updateOrderStatus(order.id, "cancelled")}
-                            title="Cancelar"
-                            className="p-3 bg-amber-500/10 hover:bg-amber-500 text-amber-500 hover:text-white border border-amber-500/20 rounded-2xl transition-all"
-                          >
-                            <XCircle size={20} />
-                          </button>
-                          <button 
-                            onClick={() => deleteOrder(order.id)}
-                            title="Eliminar"
-                            className="p-3 bg-red-500/10 hover:bg-red-500 text-red-500 hover:text-white border border-red-500/20 rounded-2xl transition-all"
-                          >
-                            <Trash2 size={20} />
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  )) : (
-                    <div className="py-20 text-center text-white/20 font-black uppercase tracking-widest">No hay pedidos registrados</div>
-                  )}
+                            </td>
+                            <td className="px-6 py-4 text-right">
+                              <div className="flex justify-end gap-2">
+                                <button 
+                                  onClick={() => updateOrderStatus(order.id, "completed")}
+                                  className="p-2 bg-green-500/10 hover:bg-green-500 text-green-500 hover:text-white border border-green-500/20 rounded-xl transition-all"
+                                >
+                                  <CheckCircle size={16} />
+                                </button>
+                                <button 
+                                  onClick={() => updateOrderStatus(order.id, "cancelled")}
+                                  className="p-2 bg-amber-500/10 hover:bg-amber-500 text-amber-500 hover:text-white border border-amber-500/20 rounded-xl transition-all"
+                                >
+                                  <XCircle size={16} />
+                                </button>
+                                <button 
+                                  onClick={() => deleteOrder(order.id)}
+                                  className="p-2 bg-red-500/10 hover:bg-red-500 text-red-500 hover:text-white border border-red-500/20 rounded-xl transition-all"
+                                >
+                                  <Trash2 size={16} />
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        )) : (
+                          <tr>
+                            <td colSpan={6} className="py-20 text-center text-white/20 font-black uppercase tracking-widest">
+                              No hay pedidos registrados
+                            </td>
+                          </tr>
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
                 </div>
 
                 {/* Ambassador Summary Table */}
@@ -423,29 +452,67 @@ export default function AdminPanel() {
                   if (ambassadorList.length === 0) return null;
 
                   return (
-                    <div className="mt-12 space-y-4">
-                      <h3 className="text-sm font-black uppercase tracking-widest text-white/40">Comisiones Pendientes</h3>
-                      <div className="bg-[#111] border border-white/10 rounded-[32px] overflow-hidden shadow-2xl">
-                        <table className="w-full text-left">
-                          <thead className="bg-white/5 border-b border-white/10">
-                            <tr>
-                              <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-white/40">Nombre del embajador</th>
-                              <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-white/40 text-center">Pedidos</th>
-                              <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-white/40 text-right">Total a pagar</th>
-                            </tr>
-                          </thead>
-                          <tbody className="divide-y divide-white/5">
-                            {ambassadorList.map(([name, data]) => (
-                              <tr key={name} className="hover:bg-white/[0.02] transition-colors">
-                                <td className="px-6 py-4">
-                                  <div className="text-xs font-black uppercase tracking-tight text-purple-400">{name}</div>
-                                </td>
-                                <td className="px-6 py-4 text-xs font-bold text-center">{data.count}</td>
-                                <td className="px-6 py-4 text-right text-sm font-black text-amber-500">${data.total.toFixed(2)}</td>
+                    <div className="mt-12 grid grid-cols-1 lg:grid-cols-2 gap-8">
+                      <div className="space-y-4">
+                        <h3 className="text-sm font-black uppercase tracking-widest text-white/40 flex items-center gap-2">
+                          <Users size={14} /> Comisiones Pendientes
+                        </h3>
+                        <div className="bg-[#111] border border-white/10 rounded-[32px] overflow-hidden shadow-2xl">
+                          <table className="w-full text-left">
+                            <thead className="bg-white/5 border-b border-white/10">
+                              <tr>
+                                <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-white/40">Embajador</th>
+                                <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-white/40 text-center">Pedidos</th>
+                                <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-white/40 text-right">A pagar</th>
                               </tr>
-                            ))}
-                          </tbody>
-                        </table>
+                            </thead>
+                            <tbody className="divide-y divide-white/5">
+                              {ambassadorList.map(([name, data]) => (
+                                <tr key={name} className="hover:bg-white/[0.02] transition-colors">
+                                  <td className="px-6 py-4">
+                                    <div className="text-xs font-black uppercase tracking-tight text-purple-400">{name}</div>
+                                  </td>
+                                  <td className="px-6 py-4 text-xs font-bold text-center">{data.count}</td>
+                                  <td className="px-6 py-4 text-right text-sm font-black text-amber-500">${data.total.toFixed(2)}</td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+
+                      <div className="space-y-4">
+                        <h3 className="text-sm font-black uppercase tracking-widest text-white/40 flex items-center gap-2">
+                          <Ticket size={14} /> Códigos Activos (Constants)
+                        </h3>
+                        <div className="bg-[#111] border border-white/10 rounded-[32px] overflow-hidden shadow-2xl max-h-[400px] overflow-y-auto custom-scroll">
+                          <table className="w-full text-left border-collapse">
+                            <thead className="bg-white/5 border-b border-white/10 sticky top-0 z-10 backdrop-blur-md">
+                              <tr>
+                                <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-white/40">Código</th>
+                                <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-white/40">Embajador</th>
+                                <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-white/40 text-right">Dcto</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-white/5">
+                              {Object.entries(referralCodes).map(([code, config]) => (
+                                <tr key={code} className="hover:bg-white/[0.02] transition-colors">
+                                  <td className="px-6 py-4">
+                                    <code className="text-xs font-black tracking-widest text-white bg-white/5 px-2 py-1 rounded">{code}</code>
+                                  </td>
+                                  <td className="px-6 py-4">
+                                    <span className="text-[10px] font-bold uppercase tracking-widest text-white/40">
+                                      {config.ambassador || "—"}
+                                    </span>
+                                  </td>
+                                  <td className="px-6 py-4 text-right">
+                                    <span className="text-xs font-black text-amber-500">{config.value}{config.type === 'pct' ? '%' : '$'}</span>
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
                       </div>
                     </div>
                   );

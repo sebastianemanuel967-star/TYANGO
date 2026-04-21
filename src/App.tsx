@@ -552,7 +552,11 @@ export default function App() {
   }, []);
 
   // Routing
-  const isPathAdmin = window.location.pathname.includes("/admin");
+  const isPathAdmin = 
+    window.location.pathname === "/admin" || 
+    window.location.pathname.startsWith("/admin/") ||
+    window.location.search.includes("admin") || 
+    window.location.hash.includes("admin");
 
   const [isAppLoading, setIsAppLoading] = useState(true);
 
@@ -829,6 +833,7 @@ export default function App() {
       
       setDiscountPct(hardcoded.value);
       setAppliedAmbassador(hardcoded.ambassador || null);
+      setAppliedReferralCode(raw);
       setReferralMsg({ text: `✓ Código ${raw} aplicado — ${hardcoded.description}`, type: "ok" });
       setIsReferralApplied(true);
       setTimeout(() => setIsReferralApplied(false), 2000);
@@ -983,12 +988,14 @@ export default function App() {
     const deliveryTimeLine = deliveryTime ? `⏰ Horario preferido: ${deliveryTime}\n` : "";
     const deliveryAddressLine = `📍 Dirección: ${deliveryAddress || "Por coordinar en chat"}\n`;
     const loyaltyLine = loyaltyFreeTopping ? "🎁 Aderezo extra GRATIS (canje de puntos)\n" : "";
+    const ambassadorLine = appliedAmbassador ? `🎖️ Embajador: ${appliedAmbassador}\n` : "";
 
     const msg = encodeURIComponent(
       `¡Hola TYANGO! 🍓 He realizado el pago de mi pedido:\n\n` +
       `${cartItemsText}\n\n` +
       `💜 Total: $${finalTotal}\n` +
       loyaltyLine +
+      ambassadorLine +
       deliveryTimeLine +
       deliveryAddressLine +
       `🏦 Pago: Transferencia Banco Pichincha\n` +
