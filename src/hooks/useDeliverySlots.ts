@@ -26,7 +26,7 @@ const getNextDeliveryDays = (): { miercoles: Date; viernes: Date } => {
     // If it's already the day but past 10pm, move to next week
     if (daysUntil === 0 && quito.getHours() >= 22) daysUntil = 7;
     d.setDate(d.getDate() + daysUntil);
-    d.setHours(10, 0, 0, 0);
+    d.setHours(12, 0, 0, 0);
     return d;
   };
 
@@ -43,8 +43,8 @@ const isSlotOpen = (fechaSlot: Date): boolean => {
   const slotDay = fechaSlot.getDay();
   const currentDay = quito.getDay();
   const currentHour = quito.getHours();
-  // Open if it's the delivery day and hour is >= 10am
-  return currentDay === slotDay && currentHour >= 10;
+  // Open if it's the delivery day and hour is >= 12pm
+  return currentDay === slotDay && currentHour >= 12;
 };
 
 export const useDeliverySlots = () => {

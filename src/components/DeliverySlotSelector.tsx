@@ -85,7 +85,7 @@ export const DeliverySlotSelector = ({ selectedSlot, onSelect }: Props) => {
                   )}
                 </div>
                 <div className="text-[10px] font-bold text-white/40 capitalize">
-                  {formatFecha(slot.fecha)} · desde las 10:00am
+                  {formatFecha(slot.fecha)} · desde las 12:00pm
                 </div>
               </div>
               

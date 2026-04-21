@@ -506,6 +506,7 @@ export default function App() {
   const [showPaymentModal, setShowPaymentModal] = useState<boolean>(false);
   const [deliveryTime, setDeliveryTime] = useState<string>("");
   const [deliveryAddress, setDeliveryAddress] = useState<string>("");
+  const [deliveryZone, setDeliveryZone] = useState<'calderon' | 'fuera' | null>(null);
 
   // Daily Offer Countdown State
   const [offerTimeLeft, setOfferTimeLeft] = useState<string>("");
@@ -1026,6 +1027,13 @@ export default function App() {
   };
 
   const finalizeWhatsAppRedirect = async () => {
+    if (!deliveryZone) {
+      setToastMsg("Por favor selecciona tu zona de entrega 📍");
+      setShowToast(true);
+      setTimeout(() => setShowToast(false), 3000);
+      return;
+    }
+
     if (!selectedDeliverySlot) {
       setToastMsg("Por favor selecciona un día de entrega 📅");
       setShowToast(true);
@@ -1068,14 +1076,19 @@ export default function App() {
     const deliveryTimeLine = deliveryTime ? `⏰ Horario preferido: ${deliveryTime}\n` : "";
     const deliveryAddressLine = `📍 Dirección: ${deliveryAddress || "Por coordinar en chat"}\n`;
     const slotLabel = selectedDeliverySlot === 'miercoles' ? 'Miércoles' : 'Viernes';
-    const deliveryLine = `📅 Día de entrega: ${slotLabel} desde las 10:00am\n`;
+    const deliveryLine = `📅 Día de entrega: ${slotLabel} desde las 12:00pm\n`;
     const loyaltyLine = loyaltyFreeTopping ? "🎁 Aderezo extra GRATIS (canje de puntos)\n" : "";
     const ambassadorLine = appliedAmbassador ? `🎖️ Embajador: ${appliedAmbassador}\n` : "";
+
+    const deliveryCost = deliveryZone === 'fuera' ? 1.50 : 0;
+    const finalTotalWithDelivery = (totalCartPrice + deliveryCost).toFixed(2);
 
     const msg = encodeURIComponent(
       `¡Hola TYANGO! 🍓 He realizado el pago de mi pedido:\n\n` +
       `${cartItemsText}\n\n` +
-      `💜 Total: $${finalTotal}\n` +
+      `💜 Subtotal: $${totalCartPrice.toFixed(2)}\n` +
+      `🛵 Delivery: ${deliveryZone === 'calderon' ? 'Gratis (Calderón)' : '$1.50 (Fuera de Calderón)'}\n` +
+      `💰 TOTAL: $${finalTotalWithDelivery}\n` +
       loyaltyLine +
       ambassadorLine +
       deliveryLine +
@@ -1639,7 +1652,7 @@ export default function App() {
             >
               <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
               <span className="text-[10px] font-black uppercase tracking-widest text-white/60">
-                Entregas: Miércoles y Viernes · 10:00am · 
+                Entregas: Miércoles y Viernes · 12:00pm · 
                 {miercolesSlot && !miercolesSlot.soldOut && ` Miér: ${miercolesSlot.cuposRestantes} cupos`}
                 {viernesSlot && !viernesSlot.soldOut && ` · Vier: ${viernesSlot.cuposRestantes} cupos`}
               </span>
@@ -2045,7 +2058,7 @@ export default function App() {
                         Miércoles
                       </div>
                       <div className="text-sm font-bold text-white/40 mt-1">
-                        Desde las 10:00am
+                        Desde las 12:00pm
                       </div>
                     </div>
                     <div className={`w-14 h-14 rounded-2xl flex items-center justify-center text-2xl ${
@@ -2188,7 +2201,7 @@ export default function App() {
                         Viernes
                       </div>
                       <div className="text-sm font-bold text-white/40 mt-1">
-                        Desde las 10:00am
+                        Desde las 12:00pm
                       </div>
                     </div>
                     <div className={`w-14 h-14 rounded-2xl flex items-center justify-center text-2xl ${
@@ -2288,6 +2301,27 @@ export default function App() {
                 </motion.div>
               );
             })()}
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-6">
+            <div className="flex items-center gap-4 p-5 bg-green-500/5 border border-green-500/20 rounded-2xl">
+              <div className="text-2xl">🏠</div>
+              <div>
+                <div className="text-sm font-black text-white">Calderón</div>
+                <div className="text-[10px] font-black uppercase tracking-widest text-green-400">
+                  Delivery gratis
+                </div>
+              </div>
+            </div>
+            <div className="flex items-center gap-4 p-5 bg-amber-500/5 border border-amber-500/20 rounded-2xl">
+              <div className="text-2xl">🛵</div>
+              <div>
+                <div className="text-sm font-black text-white">Fuera de Calderón</div>
+                <div className="text-[10px] font-black uppercase tracking-widest text-amber-400">
+                  + $1.50 adicional
+                </div>
+              </div>
+            </div>
           </div>
 
           {/* Banner inferior — ambos agotados */}
@@ -3500,12 +3534,21 @@ export default function App() {
                     </div>
                     {(() => {
                       const totalCartValue = cart.reduce((acc, item) => acc + item.price, 0);
-                      const [cartInt, cartDec] = totalCartValue.toFixed(2).split('.');
+                      const deliveryCost = deliveryZone === 'fuera' ? 1.50 : 0;
+                      const totalFinalValue = (totalCartValue + deliveryCost).toFixed(2);
+                      const [cartInt, cartDec] = totalFinalValue.split('.');
                       return (
-                        <div className="flex items-baseline text-white">
-                          <span className="text-xl font-black align-super mr-0.5 text-white/60">$</span>
-                          <span className="text-5xl font-black tracking-tighter tabular-nums" style={{ fontVariantNumeric: 'tabular-nums' }}>{cartInt}</span>
-                          <span className="text-2xl font-black text-white/60 align-super">.{cartDec}</span>
+                        <div className="flex flex-col items-end gap-1">
+                          {deliveryZone && (
+                            <div className="text-[10px] font-black uppercase tracking-widest text-white/40">
+                              Incluye {deliveryZone === 'calderon' ? 'Envío Gratis' : 'Envío $1.50'}
+                            </div>
+                          )}
+                          <div className="flex items-baseline text-white">
+                            <span className="text-xl font-black align-super mr-0.5 text-white/60">$</span>
+                            <span className="text-5xl font-black tracking-tighter tabular-nums" style={{ fontVariantNumeric: 'tabular-nums' }}>{cartInt}</span>
+                            <span className="text-2xl font-black text-white/60 align-super">.{cartDec}</span>
+                          </div>
                         </div>
                       );
                     })()}
@@ -3573,6 +3616,109 @@ export default function App() {
                     />
                   </div>
 
+                  {/* Selector de zona */}
+                  <div className="space-y-3">
+                    <div className="text-[10px] font-black uppercase tracking-widest text-white/40">
+                      Zona de entrega
+                    </div>
+                    
+                    <div className="grid grid-cols-1 gap-3">
+                      {/* Dentro de Calderón */}
+                      <motion.button
+                        whileHover={{ scale: 1.01 }}
+                        whileTap={{ scale: 0.99 }}
+                        onClick={() => setDeliveryZone('calderon')}
+                        className={`relative p-4 rounded-2xl border transition-all text-left ${
+                          deliveryZone === 'calderon'
+                            ? "bg-green-500/10 border-green-500/40"
+                            : "bg-white/5 border-white/10 hover:border-white/20"
+                        }`}
+                      >
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-3">
+                            <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-lg ${
+                              deliveryZone === 'calderon' ? "bg-green-500/20" : "bg-white/5"
+                            }`}>
+                              🏠
+                            </div>
+                            <div>
+                              <div className="text-sm font-black text-white">Dentro de Calderón</div>
+                              <div className="text-[10px] font-bold text-white/40">
+                                Sector Calderón y alrededores
+                              </div>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <div className="px-3 py-1 bg-green-500/20 border border-green-500/30 rounded-full">
+                              <span className="text-[10px] font-black uppercase tracking-widest text-green-400">
+                                Gratis
+                              </span>
+                            </div>
+                            {deliveryZone === 'calderon' && (
+                              <motion.div
+                                initial={{ scale: 0 }}
+                                animate={{ scale: 1 }}
+                                transition={{ type: "spring", stiffness: 300, damping: 15 }}
+                              >
+                                <CheckCircle2 size={18} className="text-green-400" />
+                              </motion.div>
+                            )}
+                          </div>
+                        </div>
+                      </motion.button>
+
+                      {/* Fuera de Calderón */}
+                      <motion.button
+                        whileHover={{ scale: 1.01 }}
+                        whileTap={{ scale: 0.99 }}
+                        onClick={() => setDeliveryZone('fuera')}
+                        className={`relative p-4 rounded-2xl border transition-all text-left ${
+                          deliveryZone === 'fuera'
+                            ? "bg-amber-500/10 border-amber-500/40"
+                            : "bg-white/5 border-white/10 hover:border-white/20"
+                        }`}
+                      >
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-3">
+                            <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-lg ${
+                              deliveryZone === 'fuera' ? "bg-amber-500/20" : "bg-white/5"
+                            }`}>
+                              🛵
+                            </div>
+                            <div>
+                              <div className="text-sm font-black text-white">Fuera de Calderón</div>
+                              <div className="text-[10px] font-bold text-white/40">
+                                Resto de Quito y alrededores
+                              </div>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <div className="px-3 py-1 bg-amber-500/20 border border-amber-500/30 rounded-full">
+                              <span className="text-[10px] font-black uppercase tracking-widest text-amber-400">
+                                + $1.50
+                              </span>
+                            </div>
+                            {deliveryZone === 'fuera' && (
+                              <motion.div
+                                initial={{ scale: 0 }}
+                                animate={{ scale: 1 }}
+                                transition={{ type: "spring", stiffness: 300, damping: 15 }}
+                              >
+                                <CheckCircle2 size={18} className="text-amber-400" />
+                              </motion.div>
+                            )}
+                          </div>
+                        </div>
+                      </motion.button>
+                    </div>
+
+                    {!deliveryZone && (
+                      <p className="text-[9px] font-bold text-amber-400/60 italic">
+                        * Selecciona tu zona para ver el total final
+                      </p>
+                    )}
+                  </div>
+
                   <div className="space-y-4">
                     <div className="text-[10px] font-black uppercase tracking-widest text-white/40">Dirección de entrega (opcional)</div>
                     <input 
@@ -3628,11 +3774,18 @@ export default function App() {
                   </div>
                   <div className="flex items-center justify-between">
                     <div className="text-[10px] font-black uppercase tracking-widest text-white/40">Monto Total</div>
-                    <div className="flex items-baseline text-amber-500">
-                      <span className="text-lg md:text-xl font-black align-super mr-0.5 text-white/60">$</span>
-                      <span className="text-4xl md:text-5xl font-black tracking-tighter tabular-nums" style={{ fontVariantNumeric: 'tabular-nums' }}>{intPart}</span>
-                      <span className="text-xl md:text-2xl font-black text-white/60 align-super">.{decPart}</span>
-                    </div>
+                    {(() => {
+                      const totalCartValue = cart.reduce((acc, item) => acc + item.price, 0);
+                      const deliveryCost = deliveryZone === 'fuera' ? 1.50 : 0;
+                      const [intP, decP] = (totalCartValue + deliveryCost).toFixed(2).split('.');
+                      return (
+                        <div className="flex items-baseline text-amber-500">
+                          <span className="text-lg md:text-xl font-black align-super mr-0.5 text-white/60">$</span>
+                          <span className="text-4xl md:text-5xl font-black tracking-tighter tabular-nums" style={{ fontVariantNumeric: 'tabular-nums' }}>{intP}</span>
+                          <span className="text-xl md:text-2xl font-black text-white/60 align-super">.{decP}</span>
+                        </div>
+                      );
+                    })()}
                   </div>
                 </div>
 
@@ -3653,7 +3806,7 @@ export default function App() {
                 </motion.button>
                 
                 <button 
-                  onClick={() => setShowPaymentModal(false)}
+                  onClick={() => { setShowPaymentModal(false); setDeliveryZone(null); }}
                   className="w-full text-[10px] font-bold uppercase tracking-widest text-white/20 hover:text-white/40 transition-colors"
                 >
                   Volver
