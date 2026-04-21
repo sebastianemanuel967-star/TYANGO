@@ -448,6 +448,7 @@ export default function App() {
   const [stockRemaining, setStockRemaining] = useState<number>(() => Math.floor(Math.random() * 5) + 28);
   const [userPhone, setUserPhone] = useState<string>("");
   const [isSyncing, setIsSyncing] = useState<boolean>(false);
+  const [adminClicks, setAdminClicks] = useState<number>(0);
 
   useEffect(() => {
     // Simulate stock decreasing slightly over time for urgency
@@ -2729,7 +2730,18 @@ export default function App() {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-12 items-start">
             {/* Col 1: Brand */}
             <div className="space-y-6">
-              <div>
+              <div 
+                onClick={() => {
+                  setAdminClicks(prev => {
+                    const next = prev + 1;
+                    if (next >= 5) {
+                      window.location.href = '?admin';
+                    }
+                    return next;
+                  });
+                }}
+                className="cursor-pointer select-none"
+              >
                 <div className="text-4xl font-black tracking-tighter mb-2">TYANGO</div>
                 <p className="text-sm font-medium text-white/40">Fruta fresca, sabor explosivo.</p>
               </div>
