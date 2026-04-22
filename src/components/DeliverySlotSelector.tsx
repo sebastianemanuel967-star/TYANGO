@@ -35,6 +35,12 @@ export const DeliverySlotSelector = ({ selectedSlot, onSelect }: Props) => {
         const slot = slots[dia] as SlotInfo;
         if (!slot) return null;
         
+        // Force soldOut for Wednesday for temporal measure
+        if (dia === 'miercoles') {
+          slot.soldOut = true;
+          slot.cuposRestantes = 0;
+        }
+        
         const isSelected = selectedSlot === dia;
         const pct = ((slot.cuposTotal - slot.cuposRestantes) / slot.cuposTotal) * 100;
         const urgente = slot.cuposRestantes <= 10 && !slot.soldOut;
