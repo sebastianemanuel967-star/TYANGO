@@ -76,6 +76,7 @@ export const referralCodes: Record<string, { type: 'pct' | 'product' | 'fixed', 
   "JULI":   { type: 'pct', value: 5, applyTo: 'all', description: '5% off — código de Juli', ambassador: 'Juli' },
   "ALAN":   { type: 'pct', value: 5, applyTo: 'all', description: '5% off — código de Alan', ambassador: 'Alan' },
   "SEBAS":  { type: 'pct', value: 5, applyTo: 'all', description: '5% off — código de Sebas', ambassador: 'Sebas' },
+  "OSITA":  { type: 'pct', value: 5, applyTo: 'all', description: '5% off — código de Osita', ambassador: 'Osita' },
 };
 
 export const testimonials: Testimonial[] = [
