@@ -2925,59 +2925,6 @@ export default function App() {
                     </motion.button>
                   </div>
 
-                  <AnimatePresence mode="wait">
-                    {parseFloat(totalPrice) < 5 ? (
-                      <motion.div
-                        key="delivery-progress"
-                        initial={{ opacity: 0, height: 0 }}
-                        animate={{ opacity: 1, height: "auto" }}
-                        exit={{ opacity: 0, height: 0 }}
-                        className="p-4 bg-white/5 border border-white/10 rounded-2xl space-y-3 overflow-hidden"
-                      >
-                        <div className="flex justify-between items-center">
-                          <span className="text-[9px] font-black uppercase tracking-widest text-white/40">
-                            Te faltan <span className="text-purple-400">${(5 - parseFloat(totalPrice)).toFixed(2)}</span> para delivery gratis 🛵
-                          </span>
-                        </div>
-                        <div className="h-1.5 w-full bg-white/5 rounded-full overflow-hidden">
-                          <motion.div 
-                            initial={{ width: 0 }}
-                            animate={{ width: `${Math.min(100, (parseFloat(totalPrice) / 5) * 100)}%` }}
-                            className="h-full bg-purple-500"
-                          />
-                        </div>
-                        <div className="flex justify-between items-center">
-                          <span className="text-[8px] font-bold text-white/20 italic">¡Casi lo logras! Agrega un poco más</span>
-                          <button 
-                            onClick={() => setQuantity(quantity + 1)}
-                            className="text-[8px] font-black uppercase tracking-widest text-purple-400 hover:text-purple-300 transition-colors"
-                          >
-                            + Agregar una unidad
-                          </button>
-                        </div>
-                      </motion.div>
-                    ) : (
-                      <motion.div
-                        key="delivery-success"
-                        initial={{ opacity: 0, height: 0 }}
-                        animate={{ opacity: 1, height: "auto" }}
-                        exit={{ opacity: 0, height: 0 }}
-                        className="p-4 bg-green-500/10 border border-green-500/20 rounded-2xl flex items-center justify-center gap-3 overflow-hidden"
-                      >
-                        <motion.div
-                          initial={{ scale: 0 }}
-                          animate={{ scale: 1 }}
-                          transition={{ type: "spring", stiffness: 300, damping: 15 }}
-                        >
-                          <CheckCircle2 size={14} className="text-green-500" />
-                        </motion.div>
-                        <span className="text-[9px] font-black uppercase tracking-widest text-green-500">
-                          Calificas para delivery gratis 🛵 ✓
-                        </span>
-                      </motion.div>
-                    )}
-                  </AnimatePresence>
-
                   <motion.button 
                     whileHover={{ scale: 1.02 }}
                     whileTap={{ scale: 0.98 }}
