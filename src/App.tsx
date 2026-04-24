@@ -1365,26 +1365,10 @@ export default function App() {
 
   const basePrice = dynamicSizes[selectedSize].price * quantity;
   
-  // Bundle Pricing Logic
-  let bundlePrice: number | null = null;
-  let bundleBadge: string | null = null;
-  
-  if (quantity === 3 && selectedSize === 'mini') {
-    bundlePrice = 4.00;
-    bundleBadge = "Pack Mini x3 — ahorra $0.50";
-  } else if (quantity === 5 && selectedSize === 'clasico') {
-    bundlePrice = 10.00;
-    bundleBadge = "Pack Grande x5 — uno gratis";
-  }
-
-  const autoDiscountPct = discountPct === 0 && !bundlePrice
-    ? (quantity >= 5 ? 10 : (quantity >= 3 ? 5 : 0)) 
-    : 0;
-  const effectiveDiscountPct = discountPct > 0 ? discountPct : autoDiscountPct;
+  const effectiveDiscountPct = discountPct;
   const discountAmount = effectiveDiscountPct > 0 ? basePrice * (effectiveDiscountPct / 100) : 0;
   
-  const finalBase = bundlePrice !== null ? bundlePrice : basePrice;
-  const totalPrice = (finalBase - discountAmount).toFixed(2);
+  const totalPrice = (basePrice - discountAmount).toFixed(2);
   const [intPart, decPart] = totalPrice.split('.');
   const totalWeight = dynamicSizes[selectedSize].weight * quantity;
 
@@ -2775,29 +2759,7 @@ export default function App() {
                 </div>
               </div>
 
-              {bundleBadge && (
-                <motion.div 
-                  initial={{ opacity: 0, y: -10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  className="p-4 bg-purple-500/10 border border-purple-500/20 rounded-[24px] flex items-center justify-center gap-3"
-                >
-                  <span className="text-[10px] font-black uppercase tracking-widest text-purple-400">
-                    {bundleBadge} 🎉
-                  </span>
-                </motion.div>
-              )}
-
-              {autoDiscountPct > 0 && (
-                <motion.div 
-                  initial={{ opacity: 0, y: -10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  className="p-4 bg-amber-500/10 border border-amber-500/20 rounded-[24px] flex items-center justify-center gap-3"
-                >
-                  <span className="text-[10px] font-black uppercase tracking-widest text-amber-400">
-                    Pack x{quantity} — {autoDiscountPct}% off aplicado automáticamente 🎉
-                  </span>
-                </motion.div>
-              )}
+              {/* Badges removed */}
 
               {/* Summary & Action */}
               <div className="bg-white/5 border border-white/10 rounded-[32px] p-8 space-y-6">
