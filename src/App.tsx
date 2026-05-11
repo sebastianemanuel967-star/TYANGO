@@ -384,6 +384,30 @@ export default function App() {
   
   // New Enhanced State
   const [cart, setCart] = useState<CartItem[]>([]);
+  
+  // ── Descuento automático por combo ──────────────────
+  const totalGrandesEnCarrito = cart.filter(i => i.size === 'clasico').reduce((acc, i) => acc + i.quantity, 0);
+  const totalPequenosEnCarrito = cart.filter(i => i.size === 'mini').reduce((acc, i) => acc + i.quantity, 0);
+
+  const getComboDescuento = () => {
+    // Combo Familia: 3+ grandes + 1+ pequeño
+    if (totalGrandesEnCarrito >= 3 && totalPequenosEnCarrito >= 1) {
+      return { nombre: "Combo Familia 🎉", ahorro: 1.50, color: "green" };
+    }
+    // Combo Mix: 1+ grande + 2+ pequeños
+    if (totalGrandesEnCarrito >= 1 && totalPequenosEnCarrito >= 2) {
+      return { nombre: "Combo Mix 🥭🍓", ahorro: 1.00, color: "amber" };
+    }
+    // Combo Clásico: 2+ grandes
+    if (totalGrandesEnCarrito >= 2) {
+      return { nombre: "Combo Clásico 🥭🥭", ahorro: 0.50, color: "purple" };
+    }
+    return null;
+  };
+
+  const comboActivo = getComboDescuento();
+  const comboAhorro = comboActivo?.ahorro || 0;
+  const totalCarritoConCombo = Math.max(0, cart.reduce((acc, i) => acc + i.price, 0) - comboAhorro);
   const [showCart, setShowCart] = useState<boolean>(false);
   const [isPreparing, setIsPreparing] = useState<boolean>(false);
   const { reservarCupo, nextAvailable, slots: deliverySlots } = useDeliverySlots();
@@ -1071,8 +1095,8 @@ export default function App() {
     }).join("\n");
 
     const totalCartPrice = cart.reduce((acc, item) => acc + item.price, 0);
-    const finalTotal = totalCartPrice.toFixed(2);
     
+    const comboLine = comboActivo ? `✨ ${comboActivo.nombre} (-$${comboAhorro.toFixed(2)})\n` : "";
     const deliveryTimeLine = deliveryTime ? `⏰ Horario preferido: ${deliveryTime}\n` : "";
     const deliveryAddressLine = `📍 Dirección: ${deliveryAddress || "Por coordinar en chat"}\n`;
     const slotLabel = selectedDeliverySlot === 'miercoles' ? 'Miércoles' : 'Viernes';
@@ -1081,12 +1105,13 @@ export default function App() {
     const ambassadorLine = appliedAmbassador ? `🎖️ Embajador: ${appliedAmbassador}\n` : "";
 
     const deliveryCost = deliveryZone === 'fuera' ? 1.50 : 0;
-    const finalTotalWithDelivery = (totalCartPrice + deliveryCost).toFixed(2);
+    const finalTotalWithDelivery = (totalCartPrice - comboAhorro + deliveryCost).toFixed(2);
 
     const msg = encodeURIComponent(
       `¡Hola TYANGO! 🍓 He realizado el pago de mi pedido:\n\n` +
       `${cartItemsText}\n\n` +
       `💜 Subtotal: $${totalCartPrice.toFixed(2)}\n` +
+      comboLine +
       `🛵 Delivery: ${deliveryZone === 'calderon' ? 'Gratis (Calderón)' : '$1.50 (Fuera de Calderón)'}\n` +
       `💰 TOTAL: $${finalTotalWithDelivery}\n` +
       loyaltyLine +
@@ -1148,7 +1173,7 @@ export default function App() {
       return `${item.quantity}x [${dynamicSizes[item.size].label}] ${f} (+ ${t})`;
     }).join("\n");
 
-    const totalToPay = cart.reduce((acc, i) => acc + i.price, 0);
+    const totalToPay = totalCartPrice - comboAhorro;
 
     const commissionOwed = appliedAmbassador 
       ? cart.reduce((acc, item) => acc + (item.size === 'mini' ? 0.20 : 0.25), 0)
@@ -1501,9 +1526,15 @@ export default function App() {
 
               {cart.length > 0 && (
                 <div className="p-6 bg-[#111] border-t border-white/10 space-y-4">
-                  <div className="flex items-center justify-between">
+                  {comboActivo && (
+                    <div className="flex items-center justify-between text-[10px] font-black uppercase tracking-widest text-green-400 border-b border-white/5 pb-2">
+                      <span>{comboActivo.nombre} aplicado</span>
+                      <span>-${comboAhorro.toFixed(2)}</span>
+                    </div>
+                  )}
+                  <div className="flex items-center justify-between pt-2">
                     <span className="text-[10px] font-black uppercase tracking-widest text-white/40">Total estimado</span>
-                    <span className="text-2xl font-black text-white">${cart.reduce((acc, i) => acc + i.price, 0).toFixed(2)}</span>
+                    <span className="text-2xl font-black text-white">${totalCarritoConCombo.toFixed(2)}</span>
                   </div>
                   <motion.button
                     whileHover={{ scale: 1.02 }}
@@ -3393,9 +3424,9 @@ export default function App() {
                       </div>
                     </div>
                     {(() => {
-                      const totalCartValue = cart.reduce((acc, item) => acc + item.price, 0);
+                      const totalCartValue = cart.reduce((acc, item) => acc + item.price, 0) - comboAhorro;
                       const deliveryCost = deliveryZone === 'fuera' ? 1.50 : 0;
-                      const totalFinalValue = (totalCartValue + deliveryCost).toFixed(2);
+                      const totalFinalValue = Math.max(0, totalCartValue + deliveryCost).toFixed(2);
                       const [cartInt, cartDec] = totalFinalValue.split('.');
                       return (
                         <div className="flex flex-col items-end gap-1">
@@ -3635,9 +3666,9 @@ export default function App() {
                   <div className="flex items-center justify-between">
                     <div className="text-[10px] font-black uppercase tracking-widest text-white/40">Monto Total</div>
                     {(() => {
-                      const totalCartValue = cart.reduce((acc, item) => acc + item.price, 0);
+                      const totalCartValue = cart.reduce((acc, item) => acc + item.price, 0) - comboAhorro;
                       const deliveryCost = deliveryZone === 'fuera' ? 1.50 : 0;
-                      const [intP, decP] = (totalCartValue + deliveryCost).toFixed(2).split('.');
+                      const [intP, decP] = Math.max(0, totalCartValue + deliveryCost).toFixed(2).split('.');
                       return (
                         <div className="flex items-baseline text-amber-500">
                           <span className="text-lg md:text-xl font-black align-super mr-0.5 text-white/60">$</span>
