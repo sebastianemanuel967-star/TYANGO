@@ -59,7 +59,7 @@ export const toppings: Topping[] = [
 export const sizes: Record<string, Size> = {
   mini: { label: "Mini", weight: 155, price: 1.50 },
   clasico: { label: "Grande", weight: 311, price: 2.50 },
-  premium: { label: "Premium", weight: 150, price: 1.75, isSoldOut: true },
+  premium: { label: "Premium", weight: 150, price: 1.75 },
 };
 
 export const referralCodes: Record<string, { type: 'pct' | 'product' | 'fixed', value: number, applyTo: 'all' | 'grande' | 'mini', description: string, ambassador?: string }> = {

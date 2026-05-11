@@ -79,18 +79,17 @@ export const useDeliverySlots = () => {
       if (snap.exists()) {
         const data = snap.data();
         const fecha = days.viernes;
-        const forcedUsados = 33;
         setSlots(prev => ({
           ...prev,
           viernes: {
             dia: "viernes",
             label: "Viernes",
             fecha,
-            cuposRestantes: Math.max(0, (data.cuposTotal || 50) - forcedUsados),
+            cuposRestantes: Math.max(0, (data.cuposTotal || 50) - (data.cuposUsados || 0)),
             cuposTotal: data.cuposTotal || 50,
             activo: data.activo !== undefined ? data.activo : true,
             estaAbierto: isSlotOpen(fecha),
-            soldOut: forcedUsados >= (data.cuposTotal || 50)
+            soldOut: (data.cuposUsados || 0) >= (data.cuposTotal || 50)
           }
         }));
       }
