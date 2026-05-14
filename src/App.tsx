@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { useEffect, useRef, useState, FormEvent } from "react";
+import { useEffect, useRef, useState, FormEvent, lazy, Suspense } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { 
   ShoppingBag, 
@@ -15,37 +15,34 @@ import {
   Star, 
   Leaf, 
   Palette, 
-  Lock, 
   Zap,
   ChevronDown,
-  Gift,
-  Package,
   RefreshCw,
-  User as UserIcon,
   Instagram,
   Plus,
   Trash2,
-  Check
+  Check,
+  Lock,
+  Gift,
+  Package,
+  User as UserIcon
 } from "lucide-react";
 import { db } from "./lib/firebase";
 import { DeliverySlotSelector } from "./components/DeliverySlotSelector";
 import { useDeliverySlots } from "./hooks/useDeliverySlots";
 import { 
-  collection, 
   doc, 
   getDoc, 
-  getDocs, 
   setDoc, 
-  addDoc, 
+  onSnapshot,
+  collection,
+  addDoc,
   updateDoc,
   increment,
-  onSnapshot, 
-  query, 
-  where,
-  orderBy,
-  limit,
   serverTimestamp,
-  getDocFromServer
+  query,
+  orderBy,
+  limit
 } from "firebase/firestore";
 import { 
   fruits, 
@@ -62,7 +59,6 @@ import {
   type Testimonial
 } from "./constants";
 import { fruitArt, toppingArt } from "./lib/canvasArt";
-import { lazy, Suspense } from "react";
 
 const AdminPanel = lazy(() => import("./AdminPanel"));
 
@@ -76,7 +72,6 @@ interface UserProfile {
   phone?: string;
   referredFriends: string[];
   displayName?: string;
-  tier?: 'Fan' | 'Master' | 'Legend';
 }
 
 interface CartItem {
@@ -184,62 +179,6 @@ const playClickSound = () => {
     osc.start(now);
     osc.stop(now + 0.15);
   } catch(e) {}
-};
-
-// ─── PARTICLE SYSTEM ───
-interface Particle {
-  id: number;
-  x: number;
-  y: number;
-  color: string;
-  size: number;
-  vx: number;
-  vy: number;
-}
-
-const ParticleSplash = ({ color, x, y }: { color: string; x: number; y: number }) => {
-  const [particles, setParticles] = useState<Particle[]>([]);
-
-  useEffect(() => {
-    const newParticles = Array.from({ length: 12 }).map((_, i) => ({
-      id: Math.random(),
-      x,
-      y,
-      color,
-      size: Math.random() * 6 + 4,
-      vx: (Math.random() - 0.5) * 15,
-      vy: (Math.random() - 0.5) * 15,
-    }));
-    setParticles(newParticles);
-
-    const timer = setTimeout(() => setParticles([]), 800);
-    return () => clearTimeout(timer);
-  }, [color, x, y]);
-
-  return (
-    <div className="fixed inset-0 pointer-events-none z-[600]">
-      {particles.map(p => (
-        <motion.div
-          key={p.id}
-          initial={{ x: p.x, y: p.y, opacity: 1, scale: 1 }}
-          animate={{ 
-            x: p.x + p.vx * 10, 
-            y: p.y + p.vy * 10, 
-            opacity: 0, 
-            scale: 0 
-          }}
-          transition={{ duration: 0.8, ease: "easeOut" }}
-          className="absolute rounded-full"
-          style={{ 
-            backgroundColor: p.color, 
-            width: p.size, 
-            height: p.size,
-            filter: 'blur(1px)'
-          }}
-        />
-      ))}
-    </div>
-  );
 };
 
 // ─── RECENT ACTIVITY POPUP ───
@@ -357,6 +296,8 @@ const ReviewSkeleton = () => (
 
 // ─── MAIN APP ───
 export default function App() {
+  const [cart, setCart] = useState<CartItem[]>([]);
+  const [showCart, setShowCart] = useState<boolean>(false);
   const [selectionMode, setSelectionMode] = useState<'individual' | 'mix'>('individual');
   const [selectedFruits, setSelectedFruits] = useState<Fruit[]>([]);
   const [selectedToppings, setSelectedToppings] = useState<Topping[]>([]);
@@ -375,43 +316,18 @@ export default function App() {
   const heroBagCanvasRef = useRef<HTMLCanvasElement>(null);
   const [animatedOrders, setAnimatedOrders] = useState<number>(0);
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
-  const [orderHistory, setOrderHistory] = useState<OrderRecord[]>([]);
-  const [showReferralDashboard, setShowReferralDashboard] = useState<boolean>(false);
-  const [showOrderSuccessAnimation, setShowOrderSuccessAnimation] = useState<boolean>(false);
-  const [isCopied, setIsCopied] = useState<boolean>(false);
-  const [isReferralApplied, setIsReferralApplied] = useState<boolean>(false);
-  const [appliedAmbassador, setAppliedAmbassador] = useState<string | null>(null);
-  
-  // New Enhanced State
-  const [cart, setCart] = useState<CartItem[]>([]);
-  
-  // ── Descuento automático por combo ──────────────────
-  const totalGrandesEnCarrito = cart.filter(i => i.size === 'clasico').reduce((acc, i) => acc + i.quantity, 0);
-  const totalPequenosEnCarrito = cart.filter(i => i.size === 'mini').reduce((acc, i) => acc + i.quantity, 0);
-
-  const getComboDescuento = () => {
-    // Combo Familia: 3+ grandes + 1+ pequeño
-    if (totalGrandesEnCarrito >= 3 && totalPequenosEnCarrito >= 1) {
-      return { nombre: "Combo Familia 🎉", ahorro: 1.50, color: "green" };
-    }
-    // Combo Mix: 1+ grande + 2+ pequeños
-    if (totalGrandesEnCarrito >= 1 && totalPequenosEnCarrito >= 2) {
-      return { nombre: "Combo Mix 🥭🍓", ahorro: 1.00, color: "amber" };
-    }
-    // Combo Clásico: 2+ grandes
-    if (totalGrandesEnCarrito >= 2) {
-      return { nombre: "Combo Clásico 🥭🥭", ahorro: 0.50, color: "purple" };
-    }
-    return null;
-  };
-
-  const comboActivo = getComboDescuento();
-  const comboAhorro = comboActivo?.ahorro || 0;
-  const totalCarritoConCombo = Math.max(0, cart.reduce((acc, i) => acc + i.price, 0) - comboAhorro);
-  const [showCart, setShowCart] = useState<boolean>(false);
-  const [isPreparing, setIsPreparing] = useState<boolean>(false);
   const { reservarCupo, nextAvailable, slots: deliverySlots } = useDeliverySlots();
   const [selectedDeliverySlot, setSelectedDeliverySlot] = useState<"miercoles" | "viernes" | null>(null);
+
+  const [showOrderSuccessAnimation, setShowOrderSuccessAnimation] = useState<boolean>(false);
+  const [appliedAmbassador, setAppliedAmbassador] = useState<any>(null);
+  const [isReferralApplied, setIsReferralApplied] = useState<boolean>(false);
+  const [orderHistory, setOrderHistory] = useState<OrderRecord[]>([]);
+  const [isCopied, setIsCopied] = useState<boolean>(false);
+  const [showReferralDashboard, setShowReferralDashboard] = useState<boolean>(false);
+  const [openFaq, setOpenFaq] = useState<number | null>(null);
+
+  const totalCarrito = cart.reduce((acc, item) => acc + item.price, 0);
 
   const miercolesSlot = deliverySlots['miercoles'];
   const viernesSlot = deliverySlots['viernes'];
@@ -446,20 +362,6 @@ export default function App() {
   useEffect(() => {
     setAmbosAgotados(slotMiercoles.soldOut && slotViernes.soldOut);
   }, [slotMiercoles.soldOut, slotViernes.soldOut]);
-  const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
-  const [splash, setSplash] = useState<{ color: string; x: number; y: number } | null>(null);
-
-  // Mouse tracking for Parallax
-  useEffect(() => {
-    const handleMouseMove = (e: MouseEvent) => {
-      setMousePos({ 
-        x: (e.clientX / window.innerWidth - 0.5) * 30, 
-        y: (e.clientY / window.innerHeight - 0.5) * 30 
-      });
-    };
-    window.addEventListener("mousemove", handleMouseMove);
-    return () => window.removeEventListener("mousemove", handleMouseMove);
-  }, []);
 
   const getThemeColor = () => {
     if (selectedFruits.length === 0) return "#a855f7";
@@ -476,15 +378,6 @@ export default function App() {
   };
   const themeColor = getThemeColor();
 
-  const getTier = (points: number) => {
-    if (points >= 150) return "Legend";
-    if (points >= 50) return "Master";
-    return "Fan";
-  };
-
-  // Live Feed State
-  const [liveOrder, setLiveOrder] = useState<string>("");
-  
   // Reviews state
   const [reviews, setReviews] = useState<Review[]>(
     testimonials.map((t, i) => ({
@@ -510,7 +403,6 @@ export default function App() {
   const [stockRemaining, setStockRemaining] = useState<number>(() => Math.floor(Math.random() * 5) + 28);
   const [userPhone, setUserPhone] = useState<string>("");
   const [isSyncing, setIsSyncing] = useState<boolean>(false);
-  const [adminClicks, setAdminClicks] = useState<number>(0);
 
   useEffect(() => {
     // Simulate stock decreasing slightly over time for urgency
@@ -532,11 +424,6 @@ export default function App() {
   const [deliveryAddress, setDeliveryAddress] = useState<string>("");
   const [deliveryZone, setDeliveryZone] = useState<'calderon' | 'fuera' | null>(null);
 
-  // Daily Offer Countdown State
-  const [offerTimeLeft, setOfferTimeLeft] = useState<string>("");
-  const [isOfferExpired, setIsOfferExpired] = useState<boolean>(false);
-
-  // Configurator Progress Bar State
   const [showProgress, setShowProgress] = useState<boolean>(false);
   const configuratorRef = useRef<HTMLElement | null>(null);
 
@@ -568,33 +455,6 @@ export default function App() {
       : selectedFruits.length > 0 
         ? 2 
         : 1;
-
-  useEffect(() => {
-    const timer = setInterval(() => {
-      const now = new Date();
-      // Get current time in Quito (UTC-5)
-      const quitoStr = now.toLocaleString("en-US", { timeZone: "America/Guayaquil" });
-      const quitoTime = new Date(quitoStr);
-      
-      const midnight = new Date(quitoTime);
-      midnight.setHours(24, 0, 0, 0);
-      
-      const diff = midnight.getTime() - quitoTime.getTime();
-      
-      if (diff <= 0) {
-        setIsOfferExpired(true);
-        setOfferTimeLeft("00:00:00");
-      } else {
-        const h = Math.floor(diff / 3600000).toString().padStart(2, '0');
-        const m = Math.floor((diff % 3600000) / 60000).toString().padStart(2, '0');
-        const s = Math.floor((diff % 60000) / 1000).toString().padStart(2, '0');
-        setOfferTimeLeft(`${h}:${m}:${s}`);
-        setIsOfferExpired(false);
-      }
-    }, 1000);
-
-    return () => clearInterval(timer);
-  }, []);
 
   // Dynamic Sizes State (for Admin toggles)
   const [dynamicSizes, setDynamicSizes] = useState<Record<string, Size>>(sizes);
@@ -717,29 +577,6 @@ export default function App() {
     return () => unsubscribeReviews();
   }, []);
 
-  // Live Feed Logic
-  useEffect(() => {
-    const generateOrder = () => {
-      const name = QUITO_NAMES[Math.floor(Math.random() * QUITO_NAMES.length)];
-      const barrio = QUITO_BARRIOS[Math.floor(Math.random() * QUITO_BARRIOS.length)];
-      const fruit = fruits[Math.floor(Math.random() * fruits.length)];
-      const topping = toppings[Math.floor(Math.random() * toppings.length)];
-      const isMix = Math.random() > 0.5;
-      
-      const orderType = isMix ? "un Tyango Mix" : `un Tyango de ${fruit.name}`;
-      const time = Math.random() > 0.5 ? "acaba de pedir" : "pidió hace un momento";
-      
-      return `${name} (${barrio}) ${time} ${orderType} con ${topping.name} ${topping.emoji}`;
-    };
-
-    setLiveOrder(generateOrder());
-    const interval = setInterval(() => {
-      setLiveOrder(generateOrder());
-    }, 5000);
-
-    return () => clearInterval(interval);
-  }, []);
-
   const handleAddReview = async (e: FormEvent) => {
     e.preventDefault();
     if (!newReview.text || !newReview.name) return;
@@ -829,11 +666,7 @@ export default function App() {
     renderBag();
   }, [selectedFruits, selectedToppings]);
 
-  const toggleFruit = (fruit: Fruit, e?: React.MouseEvent) => {
-    if (e) {
-      setSplash({ color: fruitColors[fruit.id] || "#fff", x: e.clientX, y: e.clientY });
-      setTimeout(() => setSplash(null), 800);
-    }
+  const toggleFruit = (fruit: Fruit) => {
     setSelectedFruits((prev) => {
       if (selectionMode === 'individual') {
         return [fruit];
@@ -861,11 +694,7 @@ export default function App() {
     }
   };
 
-  const toggleTopping = (topping: Topping, e?: React.MouseEvent) => {
-    if (e) {
-      setSplash({ color: "#fff", x: e.clientX, y: e.clientY });
-      setTimeout(() => setSplash(null), 800);
-    }
+  const toggleTopping = (topping: Topping) => {
     setSelectedToppings((prev) => {
       const idx = prev.findIndex((x) => x.id === topping.id);
       if (idx === -1) {
@@ -1072,15 +901,11 @@ export default function App() {
       return;
     }
 
-    setIsPreparing(true);
-    setShowPaymentModal(false);
-
     const cupoReservado = await reservarCupo(selectedDeliverySlot);
     if (!cupoReservado) {
       setToastMsg("¡Lo sentimos! Ese día ya no tiene cupos disponibles. Elige otro día.");
       setShowToast(true);
       setTimeout(() => setShowToast(false), 4000);
-      setIsPreparing(false);
       return;
     }
 
@@ -1094,9 +919,8 @@ export default function App() {
       return `${i + 1}. ${sz.label} (${sz.weight}g) de ${fruitNames} con ${tops} x${item.quantity} uds`;
     }).join("\n");
 
-    const totalCartPrice = cart.reduce((acc, item) => acc + item.price, 0) - comboAhorro;
+    const totalCartPrice = cart.reduce((acc, item) => acc + item.price, 0);
     
-    const comboLine = comboActivo ? `✨ ${comboActivo.nombre} (-$${comboAhorro.toFixed(2)})\n` : "";
     const deliveryTimeLine = deliveryTime ? `⏰ Horario preferido: ${deliveryTime}\n` : "";
     const deliveryAddressLine = `📍 Dirección: ${deliveryAddress || "Por coordinar en chat"}\n`;
     const slotLabel = selectedDeliverySlot === 'miercoles' ? 'Miércoles' : 'Viernes';
@@ -1111,7 +935,6 @@ export default function App() {
       `¡Hola TYANGO! 🍓 He realizado el pago de mi pedido:\n\n` +
       `${cartItemsText}\n\n` +
       `💜 Subtotal: $${totalCartPrice.toFixed(2)}\n` +
-      comboLine +
       `🛵 Delivery: ${deliveryZone === 'calderon' ? 'Gratis (Calderón)' : '$1.50 (Fuera de Calderón)'}\n` +
       `💰 TOTAL: $${finalTotalWithDelivery}\n` +
       loyaltyLine +
@@ -1173,7 +996,7 @@ export default function App() {
       return `${item.quantity}x [${dynamicSizes[item.size].label}] ${f} (+ ${t})`;
     }).join("\n");
 
-    const totalToPay = totalCartPrice - comboAhorro;
+    const totalToPay = totalCartPrice;
 
     const commissionOwed = appliedAmbassador 
       ? cart.reduce((acc, item) => acc + (item.size === 'mini' ? 0.20 : 0.25), 0)
@@ -1432,33 +1255,8 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-[#0a0a0a] text-white font-sans selection:bg-purple-500 selection:text-white">
-      {/* Dynamic Splash */}
-      {splash && <ParticleSplash {...splash} />}
-      
       {/* Recent Social Proof Popups */}
       <RecentActivity />
-
-      {/* Preparing Overlay */}
-      <AnimatePresence>
-        {isPreparing && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[600] bg-black/90 backdrop-blur-2xl flex flex-col items-center justify-center p-6 text-center"
-          >
-            <motion.div
-              animate={{ rotate: 360 }}
-              transition={{ repeat: Infinity, duration: 4, ease: "linear" }}
-              className="w-32 h-32 border-4 border-purple-500/20 border-t-purple-500 rounded-full mb-8 relative"
-            >
-              <div className="absolute inset-0 flex items-center justify-center text-4xl">🍹</div>
-            </motion.div>
-            <h2 className="text-3xl font-black tracking-tighter mb-4">PREPARANDO TU TYANGO...</h2>
-            <p className="text-white/50 max-w-xs text-sm font-medium">Estamos seleccionando la mejor fruta y aplicando tus aderezos favoritos. Te redirigiremos a WhatsApp en segundos.</p>
-          </motion.div>
-        )}
-      </AnimatePresence>
 
       {/* Cart Drawer */}
       <AnimatePresence>
@@ -1527,85 +1325,13 @@ export default function App() {
               {cart.length > 0 && (
                 <div className="p-6 bg-[#111] border-t border-white/10 space-y-4">
                   
-                  {/* Banner combo activo */}
-                  <AnimatePresence>
-                    {comboActivo && (
-                      <motion.div
-                        initial={{ opacity: 0, y: 10, scale: 0.95 }}
-                        animate={{ opacity: 1, y: 0, scale: 1 }}
-                        exit={{ opacity: 0, y: 10, scale: 0.95 }}
-                        className={`flex items-center justify-between px-4 py-3 rounded-2xl border ${
-                          comboActivo.color === 'green' 
-                            ? 'bg-green-500/10 border-green-500/30' 
-                            : comboActivo.color === 'amber'
-                            ? 'bg-amber-500/10 border-amber-500/30'
-                            : 'bg-purple-500/10 border-purple-500/30'
-                        }`}
-                      >
-                        <div className="flex items-center gap-2">
-                          <div className={`w-2 h-2 rounded-full animate-pulse ${
-                            comboActivo.color === 'green' ? 'bg-green-400' 
-                            : comboActivo.color === 'amber' ? 'bg-amber-400' 
-                            : 'bg-purple-400'
-                          }`} />
-                          <span className={`text-[10px] font-black uppercase tracking-widest ${
-                            comboActivo.color === 'green' ? 'text-green-400' 
-                            : comboActivo.color === 'amber' ? 'text-amber-400' 
-                            : 'text-purple-400'
-                          }`}>
-                            {comboActivo.nombre} activado
-                          </span>
-                        </div>
-                        <span className={`text-sm font-black ${
-                          comboActivo.color === 'green' ? 'text-green-400' 
-                          : comboActivo.color === 'amber' ? 'text-amber-400' 
-                          : 'text-purple-400'
-                        }`}>
-                          -${comboActivo.ahorro.toFixed(2)}
-                        </span>
-                      </motion.div>
-                    )}
-                  </AnimatePresence>
-
-                  {/* Sugerencia si está cerca de un combo */}
-                  {!comboActivo && totalGrandesEnCarrito === 1 && (
-                    <motion.div
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 1 }}
-                      className="flex items-center gap-2 px-4 py-3 bg-white/5 border border-white/10 rounded-2xl"
-                    >
-                      <span className="text-base">💡</span>
-                      <span className="text-[10px] font-bold text-white/50">
-                        Agrega 1 grande más y activas el <span className="text-purple-400 font-black">Combo Clásico</span> — ahorras $0.50
-                      </span>
-                    </motion.div>
-                  )}
-
-                  {!comboActivo && totalGrandesEnCarrito >= 2 && totalPequenosEnCarrito === 1 && (
-                    <motion.div
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 1 }}
-                      className="flex items-center gap-2 px-4 py-3 bg-white/5 border border-white/10 rounded-2xl"
-                    >
-                      <span className="text-base">💡</span>
-                      <span className="text-[10px] font-bold text-white/50">
-                        Agrega 1 pequeño más y activas el <span className="text-amber-400 font-black">Combo Mix</span> — ahorras $1.00
-                      </span>
-                    </motion.div>
-                  )}
-
                   <div className="flex items-center justify-between">
                     <span className="text-[10px] font-black uppercase tracking-widest text-white/40">
-                      {comboActivo ? 'Total con combo' : 'Total estimado'}
+                      Total estimado
                     </span>
                     <div className="flex items-center gap-3">
-                      {comboActivo && (
-                        <span className="text-sm font-bold text-white/20 line-through">
-                          ${cart.reduce((acc, i) => acc + i.price, 0).toFixed(2)}
-                        </span>
-                      )}
                       <span className="text-2xl font-black text-white">
-                        ${totalCarritoConCombo.toFixed(2)}
+                        ${totalCarrito.toFixed(2)}
                       </span>
                     </div>
                   </div>
@@ -1664,8 +1390,29 @@ export default function App() {
         />
       </div>
 
+      {/* Announcement Bar */}
+      <div className="fixed top-0 left-0 right-0 z-60 bg-purple-700 py-2 px-4 flex items-center justify-center gap-3">
+        <motion.div
+          className="flex items-center gap-8"
+          animate={{ x: [0, -20, 0] }}
+          transition={{ repeat: Infinity, duration: 4, ease: "easeInOut" }}
+        >
+          <span className="text-[11px] font-black uppercase tracking-[0.2em] text-white/90">
+            🍓 Entregas Miércoles y Viernes · 12:00pm · Calderón gratis
+          </span>
+          <span className="text-white/40">·</span>
+          <span className="text-[11px] font-black uppercase tracking-[0.2em] text-amber-300">
+            🛵 Fuera de Calderón +$1.50
+          </span>
+          <span className="text-white/40">·</span>
+          <span className="text-[11px] font-black uppercase tracking-[0.2em] text-white/90">
+            🍉 50 cupos por día
+          </span>
+        </motion.div>
+      </div>
+
       {/* Navigation */}
-      <nav className="fixed top-0 left-0 right-0 z-50 flex items-center justify-between px-4 md:px-12 py-4 md:py-6 backdrop-blur-md bg-black/20 border-b border-white/5">
+      <nav className="fixed top-8 left-0 right-0 z-50 flex items-center justify-between px-4 md:px-12 py-4 md:py-6 backdrop-blur-md bg-black/20 border-b border-white/5">
         <motion.div 
           initial={{ opacity: 0, x: -20 }}
           animate={{ opacity: 1, x: 0 }}
@@ -1685,7 +1432,7 @@ export default function App() {
             <Gift size={14} className="text-purple-400" />
             <span className="hidden sm:inline">Mis Referidos</span>
           </motion.button>
-
+ 
           <motion.a 
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
@@ -1696,59 +1443,6 @@ export default function App() {
           </motion.a>
         </div>
       </nav>
-
-      {/* Live Order Ticker */}
-      <div className="fixed top-[68px] sm:top-[88px] left-0 right-0 z-40 flex justify-center pointer-events-none">
-        <AnimatePresence mode="wait">
-          <motion.div
-            key={liveOrder}
-            initial={{ opacity: 0, y: -10 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 10 }}
-            className="bg-white/5 backdrop-blur-md border border-white/10 px-6 py-2 rounded-full flex items-center gap-3 shadow-2xl max-w-[90vw] overflow-hidden"
-          >
-            <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
-            <span className="text-[10px] font-bold uppercase tracking-widest text-white/60 truncate block max-w-[280px] sm:max-w-none">
-              {liveOrder}
-            </span>
-          </motion.div>
-        </AnimatePresence>
-      </div>
-
-      {/* Delivery Status Banner */}
-      <div className="fixed top-[110px] sm:top-[130px] left-0 right-0 z-39 flex justify-center pointer-events-none">
-        <AnimatePresence mode="wait">
-          {ambosAgotados ? (
-            <motion.div
-              key="soldout"
-              initial={{ opacity: 0, y: -10 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: 10 }}
-              className="bg-red-500/10 backdrop-blur-md border border-red-500/20 px-6 py-2 rounded-full flex items-center gap-3 shadow-2xl"
-            >
-              <X size={12} className="text-red-400" />
-              <span className="text-[10px] font-black uppercase tracking-widest text-red-400">
-                Cupos agotados esta semana — vuelve el próximo miércoles
-              </span>
-            </motion.div>
-          ) : (
-            <motion.div
-              key="available"
-              initial={{ opacity: 0, y: -10 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: 10 }}
-              className="bg-white/5 backdrop-blur-md border border-white/10 px-6 py-2 rounded-full flex items-center gap-3 shadow-2xl"
-            >
-              <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
-              <span className="text-[10px] font-black uppercase tracking-widest text-white/60">
-                Entregas: Miércoles y Viernes · 12:00pm · 
-                {miercolesSlot && !miercolesSlot.soldOut && ` Miér: ${miercolesSlot.cuposRestantes} cupos`}
-                {viernesSlot && !viernesSlot.soldOut && ` · Vier: ${viernesSlot.cuposRestantes} cupos`}
-              </span>
-            </motion.div>
-          )}
-        </AnimatePresence>
-      </div>
 
       {/* Sticky Progress Bar */}
       <AnimatePresence>
@@ -1802,197 +1496,114 @@ export default function App() {
       </AnimatePresence>
 
       {/* Hero Section */}
-      <section className="relative min-h-screen flex items-center justify-center px-4 pt-20 z-10">
-        <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-16 items-center w-full">
-          {/* Left Column */}
-          <div className="text-center lg:text-left flex flex-col items-center lg:items-start">
-            <motion.div 
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="inline-flex items-center gap-2 px-4 py-1.5 bg-white/5 border border-white/10 rounded-full mb-8"
-            >
-              <span className="w-1.5 h-1.5 bg-amber-400 rounded-full animate-pulse" />
-              <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-amber-400/80">Quito, Ecuador · Snacks Premium</span>
-            </motion.div>
-
-            <motion.div 
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.05 }}
-              className="flex items-center gap-3 justify-center mb-8"
-            >
-              <div className="flex -space-x-3">
-                <div className="w-8 h-8 rounded-full bg-purple-600/40 border-2 border-purple-500 flex items-center justify-center text-sm shadow-lg z-30">🍓</div>
-                <div className="w-8 h-8 rounded-full bg-purple-600/40 border-2 border-purple-500 flex items-center justify-center text-sm shadow-lg z-20">🥭</div>
-                <div className="w-8 h-8 rounded-full bg-purple-600/40 border-2 border-purple-500 flex items-center justify-center text-sm shadow-lg z-10">🍉</div>
-              </div>
-              <div className="text-sm">
-                <span className="font-black text-white">{animatedOrders}</span> <span className="text-white/50">personas ya pidieron su TYANGO</span>
-              </div>
-            </motion.div>
-
-            <motion.h1 
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.1 }}
-              className="text-[2.5rem] leading-[0.9] sm:text-6xl md:text-8xl font-display font-black tracking-tighter mb-8"
-            >
-              FRUTA.<br />
-              <span style={{ 
-                background: 'linear-gradient(135deg, #a855f7, #ec4899, #f59e0b, #a855f7)', 
-                backgroundSize: '300% 300%', 
-                WebkitBackgroundClip: 'text', 
-                WebkitTextFillColor: 'transparent', 
-                backgroundClip: 'text', 
-                animation: 'gradientShift 4s ease infinite' 
-              }}>
-                TU ESTILO.
-              </span>
-            </motion.h1>
-
-            <motion.p 
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.2 }}
-              className="max-w-sm md:max-w-xl text-sm md:text-lg text-white/50 font-medium leading-relaxed mb-12"
-            >
-              Personaliza tu snack de fruta fresca con aderezos picantes y recibe tu TYANGO sellado al vacío. Frescura total, sabor explosivo.
-            </motion.p>
-
-            <motion.div 
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.3 }}
-              className="flex flex-col sm:flex-row gap-4 w-full sm:w-auto px-6 sm:px-0 mb-12"
-            >
-              <motion.a 
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-                href="#configurar" 
-                className="w-full sm:w-auto px-10 py-5 bg-white text-black font-black uppercase tracking-widest rounded-full hover:bg-purple-500 hover:text-white transition-all transform text-center"
-              >
-                Empezar Configuración
-              </motion.a>
-              <motion.a 
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-                href="#como-funciona" 
-                className="w-full sm:w-auto px-10 py-5 bg-white/5 border border-white/10 font-black uppercase tracking-widest rounded-full hover:bg-white/10 transition-all text-center"
-              >
-                Ver Proceso
-              </motion.a>
-            </motion.div>
-
-            {/* Mobile Fruit Emojis */}
-            <div className="lg:hidden flex justify-center gap-8">
-              {['🍓', '🥭', '🍉'].map((emoji, i) => (
-                <motion.span
-                  key={i}
-                  initial={{ opacity: 0, scale: 0 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  transition={{ 
-                    delay: 0.5 + (i * 0.1),
-                    type: "spring",
-                    stiffness: 260,
-                    damping: 20
-                  }}
-                  className="text-5xl"
-                >
-                  <motion.div
-                    animate={{ y: [0, -20, 0] }}
-                    transition={{ 
-                      repeat: Infinity, 
-                      duration: 2, 
-                      delay: i * 0.2,
-                      ease: "easeInOut"
-                    }}
-                  >
-                    {emoji}
-                  </motion.div>
-                </motion.span>
-              ))}
-            </div>
-          </div>
-
-          {/* Right Column - Product Mockup */}
-          <div className="hidden lg:flex justify-center relative">
-            <motion.div
-              initial={{ opacity: 0, scale: 0.8 }}
-              animate={{ opacity: 1, scale: 1 }}
-              transition={{ delay: 0.4, duration: 0.8 }}
-              className="relative w-full max-w-md aspect-square bg-white/5 border border-white/10 rounded-[48px] overflow-hidden flex items-center justify-center shadow-2xl"
-            >
-              {/* Floating Badges */}
-              <motion.div 
-                animate={{ 
-                  y: [0, -8, 0],
-                  x: mousePos.x * 0.5
-                }}
-                transition={{ 
-                  y: { repeat: Infinity, duration: 2, delay: 0 },
-                  x: { type: "spring", stiffness: 50, damping: 20 }
-                }}
-                className="absolute top-8 left-8 px-4 py-2 bg-green-500/20 border border-green-500/30 rounded-full backdrop-blur-md z-20"
-              >
-                <span className="text-[10px] font-black uppercase tracking-widest text-green-400">100% Fruta Fresca</span>
-              </motion.div>
-
-              <motion.div 
-                animate={{ 
-                  y: [0, -8, 0],
-                  x: mousePos.x * -0.3
-                }}
-                transition={{ 
-                  y: { repeat: Infinity, duration: 2, delay: 0.4 },
-                  x: { type: "spring", stiffness: 50, damping: 20 }
-                }}
-                className="absolute top-12 right-8 px-4 py-2 bg-purple-500/20 border border-purple-500/30 rounded-full backdrop-blur-md z-20"
-              >
-                <span className="text-[10px] font-black uppercase tracking-widest text-purple-400">Sellado al Vacío</span>
-              </motion.div>
-
-              <motion.div 
-                animate={{ 
-                  y: [0, -8, 0],
-                  x: mousePos.x * 0.2
-                }}
-                transition={{ 
-                  y: { repeat: Infinity, duration: 2, delay: 0.8 },
-                  x: { type: "spring", stiffness: 50, damping: 20 }
-                }}
-                className="absolute bottom-8 left-1/2 -translate-x-1/2 px-4 py-2 bg-amber-500/20 border border-amber-500/30 rounded-full backdrop-blur-md z-20"
-              >
-                <span className="text-[10px] font-black uppercase tracking-widest text-amber-400">Quito, Ecuador</span>
-              </motion.div>
-
-              {/* Bag Canvas */}
-              <motion.div 
-                animate={{ rotateX: mousePos.y * 0.5, rotateY: mousePos.x * 0.5 }}
-                className="relative z-10 transform scale-150"
-              >
-                <canvas 
-                  ref={heroBagCanvasRef}
-                  width={300}
-                  height={300}
-                  className="w-[300px] h-[300px]"
-                />
-              </motion.div>
-
-              {/* Decorative Glow */}
-              <div className="absolute inset-0 bg-gradient-to-tr from-purple-600/10 to-transparent pointer-events-none" />
-            </motion.div>
+      <section className="relative h-[85vh] overflow-hidden">
+        {/* Imagen de fondo */}
+        <img
+          src="/images/tyango-hero.jpg"
+          alt="TYANGO Snack de Fruta Fresca"
+          className="w-full h-full object-cover"
+          onError={(e) => {
+            e.currentTarget.style.display = 'none';
+          }}
+        />
+        
+        {/* Fallback si no hay imagen — canvas actual */}
+        <div className="absolute inset-0 bg-gradient-to-br from-purple-900/40 to-black flex items-center justify-center">
+          <div className="relative w-72 h-72 opacity-60">
+            <canvas 
+              ref={heroBagCanvasRef}
+              width={300}
+              height={300}
+              className="w-full h-full"
+            />
           </div>
         </div>
 
+        {/* Overlay */}
+        <div className="absolute inset-0 bg-gradient-to-b from-black/10 via-transparent to-black/75" />
+
+        {/* Badges flotantes */}
         <motion.div 
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: 1, duration: 1 }}
-          className="absolute bottom-10 left-1/2 -translate-x-1/2 flex flex-col items-center gap-2"
+          animate={{ y: [0, -8, 0] }}
+          transition={{ repeat: Infinity, duration: 2, delay: 0 }}
+          className="absolute top-8 left-6 px-4 py-2 bg-green-500/20 border border-green-500/30 rounded-full backdrop-blur-md z-20"
         >
-          <span className="text-[10px] font-bold uppercase tracking-widest text-white/20">Scroll para explorar</span>
-          <ChevronDown size={16} className="text-white/20 animate-bounce" />
+          <span className="text-[10px] font-black uppercase tracking-widest text-green-400">
+            100% Fruta Fresca
+          </span>
         </motion.div>
+
+        <motion.div 
+          animate={{ y: [0, -8, 0] }}
+          transition={{ repeat: Infinity, duration: 2, delay: 0.4 }}
+          className="absolute top-12 right-6 px-4 py-2 bg-purple-500/20 border border-purple-500/30 rounded-full backdrop-blur-md z-20"
+        >
+          <span className="text-[10px] font-black uppercase tracking-widest text-purple-400">
+            Sellado al Vacío
+          </span>
+        </motion.div>
+
+        {/* Contenido inferior */}
+        <div className="absolute bottom-0 left-0 right-0 p-6 pb-10 z-10">
+          
+          {/* Contador de pedidos */}
+          <motion.div 
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.2 }}
+            className="flex items-center gap-3 mb-4"
+          >
+            <div className="flex -space-x-2">
+              {['🍓','🥭','🍉'].map((e, i) => (
+                <div key={i} className="w-7 h-7 rounded-full bg-purple-600/60 border-2 border-purple-500 flex items-center justify-center text-xs">
+                  {e}
+                </div>
+              ))}
+            </div>
+            <span className="text-sm text-white/70">
+              <span className="font-black text-white">{animatedOrders}</span> personas ya pidieron
+            </span>
+          </motion.div>
+
+          <motion.h1 
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.1 }}
+            className="text-5xl sm:text-7xl font-display font-black tracking-tighter leading-[0.88] mb-6 text-white text-left"
+          >
+            FRUTA.<br />
+            <span style={{ 
+              background: 'linear-gradient(135deg, #a855f7, #ec4899, #f59e0b, #a855f7)', 
+              backgroundSize: '300% 300%', 
+              WebkitBackgroundClip: 'text', 
+              WebkitTextFillColor: 'transparent', 
+              backgroundClip: 'text', 
+              animation: 'gradientShift 4s ease infinite' 
+            }}>
+              TU ESTILO.
+            </span>
+          </motion.h1>
+
+          <motion.div 
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.3 }}
+            className="flex gap-3"
+          >
+            <a 
+              href="#configurar"
+              className="flex-1 py-4 bg-white text-black font-black uppercase tracking-widest rounded-full text-[11px] text-center hover:bg-purple-500 hover:text-white transition-all underline-none decoration-transparent"
+            >
+              Armar mi TYANGO
+            </a>
+            <a 
+              href="#entregas"
+              className="px-6 py-4 bg-white/10 border border-white/20 backdrop-blur font-black uppercase tracking-widest rounded-full text-[11px] text-center hover:bg-white/20 transition-all underline-none decoration-transparent"
+            >
+              Ver cupos
+            </a>
+          </motion.div>
+        </div>
       </section>
 
       {/* Stats Strip */}
@@ -2003,7 +1614,7 @@ export default function App() {
         className="py-20 border-y border-white/5 bg-white/[0.02] z-10 relative"
       >
         <div className="max-w-7xl mx-auto px-6 grid grid-cols-2 md:grid-cols-4 gap-12">
-          {[
+            {[
             { label: "Pedidos", value: animatedOrders, icon: <ShoppingBag size={20} /> },
             { label: "Combinaciones", value: "12", icon: <Palette size={20} /> },
             { label: "Frutas", value: fruits.length, icon: <Leaf size={20} /> },
@@ -2027,55 +1638,7 @@ export default function App() {
         </div>
       </motion.section>
 
-      {/* Daily Offer Section */}
-      <section className="py-12 px-6 z-10 relative">
-        <motion.div 
-          initial={{ opacity: 0, y: 20 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true }}
-          className="max-w-4xl mx-auto bg-gradient-to-r from-purple-600/20 to-amber-500/20 border border-white/10 rounded-[40px] py-10 px-8 md:px-12 flex flex-col md:flex-row items-center justify-between gap-8"
-        >
-          <div className="space-y-4 text-center md:text-left">
-            <div className="inline-flex items-center gap-2 px-3 py-1 bg-amber-500/10 border border-amber-500/20 rounded-full animate-pulse">
-              <span className="w-1.5 h-1.5 bg-amber-500 rounded-full" />
-              <span className="text-[10px] font-black uppercase tracking-widest text-amber-500">Oferta del Día</span>
-            </div>
-            <h2 className="text-2xl md:text-3xl font-display font-black tracking-tighter leading-tight">
-              Tyango Grande + 2 aderezos <br />
-              <span className="text-purple-500">a precio especial.</span>
-            </h2>
-            <div className="flex items-center justify-center md:justify-start gap-4">
-              <span className="text-xl font-bold text-white/20 line-through">$2.50</span>
-              <span className="text-4xl font-black text-amber-400">$1.99</span>
-            </div>
-          </div>
 
-          <div className="flex flex-col items-center gap-6 min-w-[200px]">
-            <div className="text-center space-y-2">
-              {!isOfferExpired ? (
-                <>
-                  <div className="text-3xl font-black tracking-tighter font-mono text-white/90">{offerTimeLeft}</div>
-                  <div className="text-[10px] font-bold uppercase tracking-widest text-white/20">Termina en</div>
-                </>
-              ) : (
-                <div className="text-sm font-black uppercase tracking-widest text-amber-500">¡Oferta terminada! Vuelve mañana</div>
-              )}
-            </div>
-            
-            <motion.button 
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-              onClick={() => {
-                setSelectedSize("clasico");
-                document.getElementById("configurar")?.scrollIntoView({ behavior: "smooth" });
-              }}
-              className="px-8 py-4 bg-white text-black font-black uppercase tracking-widest rounded-full hover:bg-purple-500 hover:text-white transition-all text-[10px]"
-            >
-              Aprovechar ahora
-            </motion.button>
-          </div>
-        </motion.div>
-      </section>
 
       {/* DÍAS DE ENTREGA SECTION */}
       <section id="entregas" className="py-20 px-6 relative z-10">
@@ -2527,73 +2090,104 @@ export default function App() {
         </div>
       </section>
 
-      {/* Sizes Section */}
-      <section className="py-32 px-6 max-w-7xl mx-auto z-10 relative">
-        <div className="text-center mb-16">
-          <h2 className="text-4xl md:text-6xl font-display font-black tracking-tighter mb-4">ELIGE TU <span className="text-purple-500">TAMAÑO.</span></h2>
-          <p className="text-white/40 font-medium">Dos opciones perfectas para cada antojo.</p>
-        </div>
-        
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-4xl mx-auto">
-          {/* Mini Card */}
-          <motion.div 
-            whileHover={{ y: -10 }}
-            className="group p-5 sm:p-8 bg-[#111] border border-white/10 rounded-[48px] flex flex-row sm:flex-col items-center gap-4 sm:gap-0 hover:border-blue-500/50 transition-all"
-          >
-            <div className="w-16 h-16 sm:w-20 sm:h-20 bg-blue-500/10 rounded-2xl sm:rounded-3xl flex items-center justify-center text-blue-500 group-hover:scale-110 transition-transform shrink-0">
-              <Package size={32} className="w-8 h-8 sm:w-10 sm:h-10" />
+      {/* Productivity Grid Section */}
+      <section id="productos" className="py-16 px-6 relative z-10">
+        <div className="max-w-2xl mx-auto">
+          
+          <div className="mb-10 text-center md:text-left">
+            <div className="text-[10px] font-black uppercase tracking-widest text-white/30 mb-2">
+              Lo que tenemos para ti
             </div>
-            <div className="flex flex-col sm:flex-col items-center space-y-4 sm:space-y-6 flex-1">
-              <div className="space-y-2 text-center">
-                <h3 className="text-3xl font-black tracking-tighter">MINI</h3>
-                <div className="px-4 py-1 bg-blue-500/10 border border-blue-500/20 rounded-full text-[10px] font-black uppercase tracking-widest text-blue-500">
-                  155 Gramos
-                </div>
-              </div>
-              <p className="text-sm text-white/40 font-medium text-center hidden sm:block">El snack ideal para un antojo rápido y ligero. Frescura concentrada.</p>
-              <div className="text-2xl sm:text-4xl font-black tracking-tighter text-white">$1.50</div>
-              <motion.a 
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-                href="#configurar"
-                onClick={() => setSelectedSize("mini")}
-                className="w-full py-3 sm:py-5 bg-blue-500 text-white font-black uppercase tracking-widest rounded-2xl sm:rounded-3xl shadow-xl shadow-blue-500/20 text-center text-[10px] sm:text-xs"
-              >
-                Seleccionar Mini
-              </motion.a>
-            </div>
-          </motion.div>
+            <h2 className="text-3xl font-display font-black tracking-tighter text-white">
+              Una experiencia de <span className="text-purple-500">sabor real.</span>
+            </h2>
+          </div>
 
-          {/* Grande Card */}
-          <div className="relative">
-            <div className="absolute -top-4 left-1/2 -translate-x-1/2 z-10 px-6 py-1.5 bg-purple-600 rounded-full text-[10px] font-black uppercase tracking-widest text-white shadow-lg shadow-purple-600/40 whitespace-nowrap">⭐ Más Elegido</div>
-            <motion.div 
-              whileHover={{ y: -10 }}
-              className="group p-5 sm:p-8 bg-[#111] border-purple-500/50 border-2 rounded-[48px] h-full flex flex-row sm:flex-col items-center gap-4 sm:gap-0 hover:border-purple-500 transition-all"
-            >
-              <div className="w-16 h-16 sm:w-20 sm:h-20 bg-purple-500/10 rounded-2xl sm:rounded-3xl flex items-center justify-center text-purple-500 group-hover:scale-110 transition-transform shrink-0">
-                <Package size={32} className="w-8 h-8 sm:w-10 sm:h-10" />
-              </div>
-              <div className="flex flex-col sm:flex-col items-center space-y-4 sm:space-y-6 flex-1">
-                <div className="space-y-2 text-center">
-                  <h3 className="text-3xl font-black tracking-tighter">GRANDE</h3>
-                  <div className="px-4 py-1 bg-purple-500/10 border border-purple-500/20 rounded-full text-[10px] font-black uppercase tracking-widest text-purple-500">
-                    311 Gramos
+          <div className="grid grid-cols-2 gap-4">
+            {[
+              {
+                nombre: "TYANGO Mini",
+                desc: "El snack perfecto para el antojo rápido",
+                precio: "$1.50",
+                peso: "155g",
+                color: "from-blue-900/40 to-blue-800/20",
+                border: "border-blue-500/20",
+                img: "/images/tyango-mini.jpg",
+                emoji: "🍓",
+                sizeId: "mini"
+              },
+              {
+                nombre: "TYANGO Grande",
+                desc: "La porción estrella, sabor al máximo",
+                precio: "$2.50",
+                peso: "311g",
+                color: "from-purple-900/40 to-purple-800/20",
+                border: "border-purple-500/20",
+                img: "/images/tyango-grande.jpg",
+                emoji: "🥭",
+                sizeId: "clasico",
+                badge: "⭐ Más elegido"
+              }
+            ].map((prod, i) => (
+              <motion.div
+                key={i}
+                whileHover={{ y: -4 }}
+                className={`relative bg-gradient-to-b ${prod.color} border ${prod.border} rounded-[28px] overflow-hidden flex flex-col`}
+              >
+                {/* Badge */}
+                {prod.badge && (
+                  <div className="absolute top-3 left-3 z-10 px-3 py-1 bg-purple-600 rounded-full text-[9px] font-black uppercase tracking-widest text-white shadow-lg">
+                    {prod.badge}
+                  </div>
+                )}
+
+                {/* Imagen con arco redondeado superior — estilo Picosa Flame */}
+                <div className="relative h-44 bg-white/5 overflow-hidden">
+                  <img
+                    src={prod.img}
+                    alt={prod.nombre}
+                    className="w-full h-full object-cover"
+                    onError={(e) => {
+                      e.currentTarget.style.display = 'none';
+                    }}
+                  />
+                  {/* Fallback emoji */}
+                  <div className="absolute inset-0 flex items-center justify-center text-6xl opacity-30">
+                    {prod.emoji}
+                  </div>
+                  {/* Arco inferior */}
+                  <div className="absolute bottom-0 left-0 right-0 h-8 bg-[#0a0a0a] rounded-t-[50%]" />
+                </div>
+
+                {/* Info */}
+                <div className="p-4 pt-2 flex flex-col flex-1 justify-between gap-3">
+                  <div>
+                    <div className="text-[9px] font-black uppercase tracking-widest text-white/30 mb-1">
+                      {prod.peso}
+                    </div>
+                    <div className="text-base font-black tracking-tight text-white leading-tight">
+                      {prod.nombre}
+                    </div>
+                    <div className="text-[10px] text-white/40 mt-1 leading-tight">
+                      {prod.desc}
+                    </div>
+                  </div>
+                  <div className="flex items-center justify-between mt-auto">
+                    <div className="text-xl font-black text-white">{prod.precio}</div>
+                    <motion.button
+                      whileTap={{ scale: 0.95 }}
+                      onClick={() => {
+                        setSelectedSize(prod.sizeId);
+                        document.getElementById('configurar')?.scrollIntoView({ behavior: 'smooth' });
+                      }}
+                      className="px-4 py-2 bg-purple-600 rounded-full text-[9px] font-black uppercase tracking-widest text-white hover:bg-purple-500 transition-colors"
+                    >
+                      Pedir
+                    </motion.button>
                   </div>
                 </div>
-                <p className="text-sm text-white/40 font-medium text-center hidden sm:block">Nuestra porción estrella. La cantidad perfecta para disfrutar al máximo.</p>
-                <div className="text-2xl sm:text-4xl font-black tracking-tighter text-white">$2.50</div>
-                <motion.a 
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
-                  href="#configurar"
-                  onClick={() => setSelectedSize("clasico")}
-                  className="w-full py-3 sm:py-5 bg-purple-600 text-white font-black uppercase tracking-widest rounded-2xl sm:rounded-3xl shadow-xl shadow-purple-600/20 text-center text-[10px] sm:text-xs"
-                >
-                  Seleccionar Grande
-                </motion.a>
-              </div>
-            </motion.div>
+              </motion.div>
+            ))}
           </div>
         </div>
       </section>
@@ -3003,11 +2597,16 @@ export default function App() {
                     whileHover={{ scale: 1.02 }}
                     whileTap={{ scale: 0.98 }}
                     onClick={confirmOrder}
-                    disabled={cart.length === 0 || orderConfirmed}
+                    disabled={(cart.length === 0 && selectedFruits.length === 0) || orderConfirmed}
                     className="w-full flex items-center justify-center gap-2 py-5 bg-purple-600 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-purple-500 transition-all shadow-xl shadow-purple-600/20 disabled:opacity-50"
                   >
                     {orderConfirmed ? <CheckCircle2 size={14} /> : <MessageCircle size={14} />}
-                    {orderConfirmed ? "Confirmado" : "Comprar Todo (" + cart.length + ")"}
+                    {orderConfirmed 
+                      ? "✓ Pedido confirmado" 
+                      : cart.length > 0 
+                        ? "Agregar al pedido" 
+                        : "Pedir Ahora"
+                    }
                   </motion.button>
                   
                   <div className="space-y-3">
@@ -3260,24 +2859,160 @@ export default function App() {
         )}
       </AnimatePresence>
 
+      {/* FAQ Section */}
+      <section className="py-16 px-6 relative z-10 border-t border-white/5">
+        <div className="max-w-2xl mx-auto">
+          
+          <div className="text-center mb-12">
+            <div className="text-[10px] font-black uppercase tracking-widest text-white/30 mb-3">
+              Queremos guiar tu experiencia
+            </div>
+            <h2 className="text-3xl font-display font-black tracking-tighter text-white">
+              Preguntas <span className="text-purple-500">frecuentes.</span>
+            </h2>
+          </div>
+
+          <div className="space-y-0 divide-y divide-white/10">
+            {[
+              {
+                icon: "🍓",
+                pregunta: "¿Qué frutas tienen disponibles?",
+                respuesta: "Trabajamos con mango, fresa, sandía, pepino y jícama. Las frutas varían según la temporada para garantizar siempre la mejor frescura. Puedes combinar hasta 3 frutas en el modo Mix."
+              },
+              {
+                icon: "📦",
+                pregunta: "¿En qué horario realizan las entregas?",
+                respuesta: "Entregamos los miércoles y viernes desde las 12:00pm. Abrimos 50 cupos por día. Dentro de Calderón el delivery es gratis, fuera de Calderón tiene un costo adicional de $1.50."
+              },
+              {
+                icon: "🌶️",
+                pregunta: "¿Puedo personalizar mi combinación?",
+                respuesta: "¡Sí! Ese es el concepto TYANGO. Eliges tu fruta (o hasta 3 en modo Mix), tu aderezo (chamoy, chile limón, tajín o sal limón) y el tamaño. Cada TYANGO es único."
+              },
+              {
+                icon: "💳",
+                pregunta: "¿Cómo realizo el pago?",
+                respuesta: "El pago se realiza por transferencia bancaria al Banco Pichincha antes de confirmar el pedido. Una vez transferido, nos envías el comprobante por WhatsApp y confirmamos tu cupo."
+              },
+              {
+                icon: "🎁",
+                pregunta: "¿Tienen códigos de descuento?",
+                respuesta: "Sí, si tienes un código de embajador TYANGO puedes aplicarlo en el configurador para obtener un 5% de descuento. También acumulas puntos TYANGO con cada compra para canjear por aderezos gratis."
+              },
+              {
+                icon: "🔄",
+                pregunta: "¿Qué pasa si se agotan los cupos?",
+                respuesta: "Los cupos se resetean cada semana el lunes. Si el miércoles está Sold Out, aún puedes reservar para el viernes. Si ambos días están agotados, vuelve el próximo lunes a las 12:00pm para ser de los primeros."
+              }
+            ].map((faq, i) => (
+              <motion.div key={i} className="py-5">
+                <button
+                  onClick={() => setOpenFaq(openFaq === i ? null : i)}
+                  className="w-full flex items-center justify-between gap-4 text-left group transition-all"
+                >
+                  <div className="flex items-center gap-4">
+                    <span className="text-xl">{faq.icon}</span>
+                    <span className="text-sm font-bold text-white group-hover:text-purple-400 transition-colors leading-snug">
+                      {faq.pregunta}
+                    </span>
+                  </div>
+                  <motion.div
+                    animate={{ rotate: openFaq === i ? 180 : 0 }}
+                    transition={{ duration: 0.2 }}
+                    className="shrink-0"
+                  >
+                    <ChevronDown size={18} className="text-white/40 group-hover:text-purple-400 transition-colors" />
+                  </motion.div>
+                </button>
+                
+                <AnimatePresence>
+                  {openFaq === i && (
+                    <motion.div
+                      initial={{ height: 0, opacity: 0 }}
+                      animate={{ height: "auto", opacity: 1 }}
+                      exit={{ height: 0, opacity: 0 }}
+                      transition={{ duration: 0.25, ease: "easeInOut" }}
+                      className="overflow-hidden"
+                    >
+                      <p className="pt-4 pl-9 text-sm text-white/50 font-medium leading-relaxed">
+                        {faq.respuesta}
+                      </p>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </motion.div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Instagram / Comunidad Section */}
+      <section className="py-16 px-6 relative z-10">
+        <div className="max-w-2xl mx-auto">
+          
+          <h2 className="text-2xl font-display font-black tracking-tighter text-white text-center mb-8 uppercase">
+            Síguenos en <span className="text-purple-500">Instagram</span>
+          </h2>
+
+          {/* Grid 2x2 de fotos */}
+          <div className="grid grid-cols-2 gap-3 mb-8">
+            {[
+              { src: "/images/ig-1.jpg", alt: "Joven con dos fundas de Tyango Mix" },
+              { src: "/images/ig-2.jpg", alt: "Chica recibiendo su pedido Tyango" },
+              { src: "/images/ig-3.jpg", alt: "Cliente feliz con su Tyango en exteriores" },
+              { src: "/images/ig-4.jpg", alt: "Joven con su mochila y su Tyango" }
+            ].map((foto, i) => (
+              <motion.a
+                key={i}
+                href="https://www.instagram.com/tyango_ec/"
+                target="_blank"
+                rel="noopener noreferrer"
+                whileHover={{ scale: 1.02 }}
+                className="relative aspect-square bg-white/5 border border-white/10 rounded-2xl overflow-hidden group"
+              >
+                <img
+                  src={foto.src}
+                  alt={foto.alt}
+                  className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+                  onError={(e) => {
+                    e.currentTarget.style.display = 'none';
+                  }}
+                />
+                {/* Fallback placeholder elegante */}
+                <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                  <div className="text-4xl opacity-20 group-hover:opacity-40 transition-opacity">🍓</div>
+                </div>
+                {/* Overlay en hover */}
+                <div className="absolute inset-0 bg-purple-600/20 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                  <Instagram size={24} className="text-white" />
+                </div>
+              </motion.a>
+            ))}
+          </div>
+
+          <div className="text-center">
+            <motion.a
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              href="https://www.instagram.com/tyango_ec/"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-3 px-8 py-4 bg-white/5 border border-white/10 rounded-full text-[11px] font-black uppercase tracking-widest text-white/70 hover:bg-purple-600/20 hover:border-purple-500/40 hover:text-white transition-all underline-none decoration-transparent"
+            >
+              <Instagram size={16} />
+              @tyango_ec
+            </motion.a>
+          </div>
+        </div>
+      </section>
+
       {/* Footer */}
       <footer className="py-24 px-6 border-t border-white/5 bg-black/20 relative overflow-hidden">
         <div className="max-w-7xl mx-auto">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-12 items-start">
             {/* Col 1: Brand */}
             <div className="space-y-6">
-              <div 
-                onClick={() => {
-                  setAdminClicks(prev => {
-                    const next = prev + 1;
-                    if (next >= 5) {
-                      window.location.href = '?admin';
-                    }
-                    return next;
-                  });
-                }}
-                className="cursor-pointer select-none"
-              >
+              <div>
                 <div className="text-4xl font-black tracking-tighter mb-2">TYANGO</div>
                 <p className="text-sm font-medium text-white/40">Fruta fresca, sabor explosivo.</p>
               </div>
@@ -3413,7 +3148,7 @@ export default function App() {
 
                 <button 
                   onClick={() => {
-                    const text = `¡Prueba TYANGO! 🍓 Usa mi código ${userProfile.referralCode} para un 15% de descuento en tu primer snack de fruta. 👉 ${window.location.href}`;
+                    const text = `¡Prueba TYANGO! 🍓 Usa mi código ${userProfile.referralCode} para un 10% de descuento en tu Grande. 👉 ${window.location.href}`;
                     window.location.href = `https://api.whatsapp.com/send?text=${encodeURIComponent(text)}`;
                   }}
                   className="w-full py-5 bg-green-600 hover:bg-green-500 rounded-full text-xs font-black uppercase tracking-widest transition-all flex items-center justify-center gap-3"
@@ -3554,7 +3289,7 @@ export default function App() {
                       </div>
                     </div>
                     {(() => {
-                      const totalCartValue = cart.reduce((acc, item) => acc + item.price, 0) - comboAhorro;
+                      const totalCartValue = cart.reduce((acc, item) => acc + item.price, 0);
                       const deliveryCost = deliveryZone === 'fuera' ? 1.50 : 0;
                       const totalFinalValue = Math.max(0, totalCartValue + deliveryCost).toFixed(2);
                       const [cartInt, cartDec] = totalFinalValue.split('.');
@@ -3796,7 +3531,7 @@ export default function App() {
                   <div className="flex items-center justify-between">
                     <div className="text-[10px] font-black uppercase tracking-widest text-white/40">Monto Total</div>
                     {(() => {
-                      const totalCartValue = cart.reduce((acc, item) => acc + item.price, 0) - comboAhorro;
+                      const totalCartValue = cart.reduce((acc, item) => acc + item.price, 0);
                       const deliveryCost = deliveryZone === 'fuera' ? 1.50 : 0;
                       const [intP, decP] = Math.max(0, totalCartValue + deliveryCost).toFixed(2).split('.');
                       return (
@@ -3988,24 +3723,37 @@ export default function App() {
       </AnimatePresence>
 
       {/* Mobile Checkout Bar */}
-      <div className="lg:hidden fixed bottom-0 left-0 right-0 z-[80] bg-[#111]/95 backdrop-blur-xl border-t border-white/10 px-4 py-3 flex justify-between items-center gap-3">
+      <div className="lg:hidden fixed bottom-6 left-6 right-6 z-[445] bg-[#111]/95 backdrop-blur-xl border border-white/10 rounded-3xl p-4 flex justify-between items-center shadow-2xl">
         <div className="flex flex-col">
-          <span className="text-xl font-black">
-            ${totalPrice}
-          </span>
-          <span className="text-[9px] text-white/40 uppercase tracking-widest font-bold">Total a pagar</span>
+          {cart.length > 0 ? (
+            <>
+              <span className="text-xl font-black text-white">
+                ${cart.reduce((acc, i) => acc + i.price, 0).toFixed(2)}
+              </span>
+              <span className="text-[10px] text-white/40 uppercase tracking-widest font-black">
+                {cart.reduce((acc, i) => acc + i.quantity, 0)} {cart.reduce((acc, i) => acc + i.quantity, 0) === 1 ? 'ÍTEM' : 'ÍTEMS'} · CARRITO
+              </span>
+            </>
+          ) : (
+            <>
+              <span className="text-xl font-black text-white">${totalPrice}</span>
+              <span className="text-[10px] text-white/40 uppercase tracking-widest font-black">Total a pagar</span>
+            </>
+          )}
         </div>
         <motion.button
           whileTap={{ scale: 0.95 }}
-          onClick={confirmOrder}
-          disabled={selectedFruits.length === 0}
+          onClick={cart.length > 0 ? () => setShowCart(true) : confirmOrder}
+          disabled={selectedFruits.length === 0 && cart.length === 0}
           className={`px-6 py-3 rounded-full text-[10px] font-black uppercase tracking-widest transition-all ${
-            selectedFruits.length === 0 
-              ? "bg-white/10 text-white/20" 
-              : "bg-purple-600 text-white shadow-lg shadow-purple-600/30"
+            selectedFruits.length === 0 && cart.length === 0
+              ? "bg-white/10 text-white/20"
+              : cart.length > 0
+                ? "bg-amber-500 text-black shadow-lg shadow-amber-500/30"
+                : "bg-purple-600 text-white shadow-lg shadow-purple-600/30"
           }`}
         >
-          Pedir Ahora
+          {cart.length > 0 ? "Ver Carrito" : "Pedir Ahora"}
         </motion.button>
       </div>
     </div>
